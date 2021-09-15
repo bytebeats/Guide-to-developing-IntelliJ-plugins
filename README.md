@@ -1,9 +1,9 @@
 # Guide-to-developing-IntelliJ-plugins
 Advanced guide to developing IntelliJ IDEA plugins.
 
-README: [English](https://github.com/bytebeats/Guide-to-developing-IntelliJ-plugins/blob/main/README.md) | [中文](https://github.com/bytebeats/Guide-to-developing-IntelliJ-plugins/blob/main/README-zh.md)
+README: [English](https://github.com/bytebeats/Guide-to-developing-IntelliJ-plugins/blob/main/en/README.md) | [中文](https://github.com/bytebeats/Guide-to-developing-IntelliJ-plugins/blob/main/cn/README-zh.md)
 
-Previous: [English](https://github.com/bytebeats/Guide-to-developing-IntelliJ-plugins/blob/main/introduction.md) | [中文](https://github.com/bytebeats/Guide-to-developing-IntelliJ-plugins/blob/main/introduction-zh.md)
+Previous: [English](https://github.com/bytebeats/Guide-to-developing-IntelliJ-plugins/blob/main/en/introduction.md) | [中文](https://github.com/bytebeats/Guide-to-developing-IntelliJ-plugins/blob/main/cn/introduction-zh.md)
 
 Reference: [Blog](https://developerlife.com/2021/03/13/ij-idea-plugin-advanced/)
 
