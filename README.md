@@ -551,3 +551,659 @@ These are great to walk thru to understand how to make our own. The source files
 The example we will build for this section entails finding hyperlinks and replacing the links w/ some modified version of the link string. This will require using a write lock to mutate the PSI in a cancellable action.
 
 #### Generate PSI elements from text
+
+It might seem strange but the preferred way to [create PSI elements](https://plugins.jetbrains.com/docs/intellij/modifying-psi.html?from=jetbrains.org) by generating text for the new element and then having IDEA parse this into a PSI element. Kind of like how a browser parses text (containing HTML) into DOM elements by setting `innerHTML()`.
+
+Here is some code that does this for Markdown elements.
+
+```
+private fun createNewLinkElement(project: Project, linkText: String, linkDestination: String): PsiElement? {
+  val markdownText = "[$linkText]($linkDestination)"
+  val newFile = MarkdownPsiElementFactory.createFile(project, markdownText)
+  val newParentLinkElement = findChildElement(newFile, MarkdownTokenTypeSets.LINKS)
+  return newParentLinkElement
+}
+```
+
+#### Example of walking up and down PSI trees to find elements
+
+This is a dump from the PSI viewer of a snippet from this [README.md](https://raw.githubusercontent.com/sonar-intellij-plugin/sonar-intellij-plugin/master/README.md) file.
+
+```
+MarkdownParagraphImpl(Markdown:PARAGRAPH)(1201,1498)
+  PsiElement(Markdown:Markdown:TEXT)('The main goal of this plugin is to show')(1201,1240)
+  PsiElement(Markdown:WHITE_SPACE)(' ')(1240,1241)
+  ASTWrapperPsiElement(Markdown:Markdown:INLINE_LINK)(1241,1274)  <============[🔥 WE WANT THIS PARENT 🔥]=========
+    ASTWrapperPsiElement(Markdown:Markdown:LINK_TEXT)(1241,1252)
+      PsiElement(Markdown:Markdown:[)('[')(1241,1242)
+      PsiElement(Markdown:Markdown:TEXT)('SonarQube')(1242,1251)  <============[🔥 EDITOR CARET IS HERE 🔥]========
+      PsiElement(Markdown:Markdown:])(']')(1251,1252)
+    PsiElement(Markdown:Markdown:()('(')(1252,1253)
+    MarkdownLinkDestinationImpl(Markdown:Markdown:LINK_DESTINATION)(1253,1273)
+      PsiElement(Markdown:Markdown:GFM_AUTOLINK)('http://sonarqube.org')(1253,1273)
+    PsiElement(Markdown:Markdown:))(')')(1273,1274)
+  PsiElement(Markdown:WHITE_SPACE)(' ')(1274,1275)
+  PsiElement(Markdown:Markdown:TEXT)('issues directly within your IntelliJ IDE.')(1275,1316)
+  PsiElement(Markdown:Markdown:EOL)('\n')(1316,1317)
+  PsiElement(Markdown:Markdown:TEXT)('Currently the plugin is build to work in IntelliJ IDEA,')(1317,1372)
+  PsiElement(Markdown:WHITE_SPACE)(' ')(1372,1373)
+  PsiElement(Markdown:Markdown:TEXT)('RubyMine,')(1373,1382)
+  PsiElement(Markdown:WHITE_SPACE)(' ')(1382,1383)
+  PsiElement(Markdown:Markdown:TEXT)('WebStorm,')(1383,1392)
+  PsiElement(Markdown:WHITE_SPACE)(' ')(1392,1393)
+  PsiElement(Markdown:Markdown:TEXT)('PhpStorm,')(1393,1402)
+  PsiElement(Markdown:WHITE_SPACE)(' ')(1402,1403)
+  PsiElement(Markdown:Markdown:TEXT)('PyCharm,')(1403,1411)
+  PsiElement(Markdown:WHITE_SPACE)(' ')(1411,1412)
+  PsiElement(Markdown:Markdown:TEXT)('AppCode and Android Studio with any programming ... SonarQube.')(1412,1498)
+PsiElement(Markdown:Markdown:EOL)('\n')(1498,1499)
+```
+
+There are a few things to note from this tree.
+1. The caret in the editor selects a PSI element that is at the leaf level of the selection.
+2. This will require us to walk up the tree (navigate to the parents, and their parents, and so on). We have to use a `MarkdownTokenTypes` (singular) or `MarkdownTokenTypeSets` (a set).
+* An example is that we start w/ a `TEXT`, then move up to `LINK_TEXT`, then move up to `INLINE_LINK`.
+1. This will require us to walk down the tree (navigate to the children, and their children, and so on). Similarly, we can use the same token types or token type sets above.
+* An example is that we start w/ a `INLINE_LINK` and drill down the kids, then move down to the `LINK_DESTINATION`.
+
+Here’s the code that does exactly this. And it stores the result in a `LinkInfo` data class object.
+
+```
+data class LinkInfo(var parentLinkElement: PsiElement, var linkText: String, var linkDestination: String)
+
+/**
+ * This function tries to find the first element which is a link, by walking up the tree starting w/ the element that
+ * is currently under the caret.
+ *
+ * To simplify, something like `PsiUtilCore.getElementType(element) == INLINE_LINK` is evaluated for each element
+ * starting from the element under the caret, then visiting its parents, and their parents, etc, until a node of type
+ * `INLINE_LINK` is found, actually, a type contained in [MarkdownTokenTypeSets.LINKS].
+ */
+private fun findLink(editor: Editor, project: Project, psiFile: PsiFile): LinkInfo? {
+  val offset = editor.caretModel.offset
+  val elementAtCaret: PsiElement? = psiFile.findElementAt(offset)
+
+  // Find the first parent of the element at the caret, which is a link.
+  val parentLinkElement = findParentElement(elementAtCaret, MarkdownTokenTypeSets.LINKS)
+
+  val linkTextElement = findChildElement(parentLinkElement, MarkdownTokenTypeSets.LINK_TEXT)
+  val textElement = findChildElement(linkTextElement, MarkdownTokenTypes.TEXT)
+  val linkDestinationElement = findChildElement(parentLinkElement, MarkdownTokenTypeSets.LINK_DESTINATION)
+
+  val linkText = textElement?.text
+  val linkDestination = linkDestinationElement?.text
+
+  if (linkText == null || linkDestination == null || parentLinkElement == null) return null
+
+  println("Top level element of type contained in MarkdownTokenTypeSets.LINKS found! 🎉")
+  println("linkText: $linkText, linkDest: $linkDestination")
+  return LinkInfo(parentLinkElement, linkText, linkDestination)
+}
+```
+
+#### Finding elements up the tree (parents)
+
+```
+private fun findParentElement(element: PsiElement?, tokenSet: TokenSet): PsiElement? {
+  if (element == null) return null
+  return PsiTreeUtil.findFirstParent(element, false) {
+    callCheckCancelled()
+    val node = it.node
+    node != null && tokenSet.contains(node.elementType)
+  }
+}
+```
+
+#### Finding elements down the tree (children)
+
+```
+private fun findChildElement(element: PsiElement?, token: IElementType?): PsiElement? {
+  return findChildElement(element, TokenSet.create(token))
+}
+
+private fun findChildElement(element: PsiElement?, tokenSet: TokenSet): PsiElement? {
+  if (element == null) return null
+
+  val processor: FindElement<PsiElement> =
+      object : FindElement<PsiElement>() {
+        // If found, returns false. Otherwise returns true.
+        override fun execute(each: PsiElement): Boolean {
+          callCheckCancelled()
+          if (tokenSet.contains(each.node.elementType)) return setFound(each)
+          else return true
+        }
+      }
+
+  element.accept(object : PsiRecursiveElementWalkingVisitor() {
+    override fun visitElement(element: PsiElement) {
+      callCheckCancelled()
+      val isFound = !processor.execute(element)
+      if (isFound) stopWalking()
+      else super.visitElement(element)
+    }
+  })
+
+  return processor.foundElement
+  }
+```
+
+#### Threading considerations
+
+Here are the threading rules:
+
+1. PSI access can happen in any thread (EDT or background), as long as the read lock (via its read action) is acquired before doing so.
+2. PSI mutation can only happen in the EDT (not a background thread), since as soon as the write lock (via its write action) is acquired, that means that code is now running in the EDT.
+
+Here’s the action implementation that calls the code shown above. And it uses a very optimized approach to acquiring read and write locks, and using the background thread for blocking network IO.
+
+1. The background thread w/ read action is used to find the hyperlink.
+2. The background thread is used to shorten this long hyperlink w/ a short one. This entails making blocking network IO call. And no locks are held during this phase.
+3. Finally, a write action is acquired in the EDT to actually mutate the PSI tree w/ the information from the first 2 parts above. This is where the long link is replaced w/ the short link and the PSI is mutated.
+
+And all 3 operations are done in a `Task.Backgroundable` which can be cancelled at anytime and it will end as soon as it can w/out changing anything under the caret in the editor.
+
+* If the task actually goes to completion then a notification is shown reporting that the background task was run successfully.
+* And if it gets cancelled in the meantime, then a dialog box is shown w/ an error message.
+
+```
+class EditorReplaceLink(val shortenUrlService: ShortenUrlService = TinyUrl()) : AnAction() {
+  /**
+   * For some tests this is not initialized, but accessed when running [doWorkInBackground]. Use [callCheckCancelled]
+   * instead of a direct call to `CheckCancelled.invoke()`.
+   */
+  private lateinit var checkCancelled: CheckCancelled
+  @VisibleForTesting
+  private var myIndicator: ProgressIndicator? = null
+
+  override fun actionPerformed(e: AnActionEvent) {
+    val editor = e.getRequiredData(CommonDataKeys.EDITOR)
+    val psiFile = e.getRequiredData(CommonDataKeys.PSI_FILE)
+    val project = e.getRequiredData(CommonDataKeys.PROJECT)
+    val progressTitle = "Doing heavy PSI mutation"
+
+    object : Task.Backgroundable(project, progressTitle) {
+      var result: Boolean = false
+
+      override fun run(indicator: ProgressIndicator) {
+        if (PluginManagerCore.isUnitTestMode) {
+          println("🔥 Is in unit testing mode 🔥️")
+          // Save a reference to this indicator for testing.
+          myIndicator = indicator
+        }
+        checkCancelled = CheckCancelled(indicator, project)
+        result = doWorkInBackground(editor, psiFile, project)
+      }
+
+      override fun onFinished() {
+        Pair("Background task completed", if (result) "Link shortened" else "Nothing to do").notify()
+      }
+    }.queue()
+  }
+
+  enum class RunningState {
+    NOT_STARTED, IS_RUNNING, HAS_STOPPED, IS_CANCELLED
+  }
+
+  @VisibleForTesting
+  fun isRunning(): RunningState {
+    if (myIndicator == null) {
+      return NOT_STARTED
+    }
+    else {
+      return when {
+        myIndicator!!.isCanceled -> IS_CANCELLED
+        myIndicator!!.isRunning  -> IS_RUNNING
+        else                     -> HAS_STOPPED
+      }
+    }
+  }
+
+  @VisibleForTesting
+  fun isCanceled(): Boolean = myIndicator?.isCanceled ?: false
+
+  /**
+   * This function returns true when it executes successfully. If there is no work for this function to do then it
+   * returns false. However, if the task is cancelled (when wrapped w/ a [Task.Backgroundable], then it will throw
+   * an exception (and aborts) when [callCheckCancelled] is called.
+   */
+  @VisibleForTesting
+  fun doWorkInBackground(editor: Editor, psiFile: PsiFile, project: Project): Boolean {
+    // Acquire a read lock in order to find the link information.
+    val linkInfo = runReadAction { findLink(editor, project, psiFile) }
+
+    callCheckCancelled()
+
+    // Actually shorten the link in this background thread (ok to block here).
+    if (linkInfo == null) return false
+    linkInfo.linkDestination = shortenUrlService.shorten(linkInfo.linkDestination) // Blocking call, does network IO.
+
+    callCheckCancelled()
+
+    // Mutate the PSI in this write command action.
+    // - The write command action enables undo.
+    // - The lambda inside of this call runs in the EDT.
+    WriteCommandAction.runWriteCommandAction(project) {
+      if (!psiFile.isValid) return@runWriteCommandAction
+      replaceExistingLinkWith(project, linkInfo)
+    }
+
+    callCheckCancelled()
+
+    return true
+  }
+
+  // All the other functions shown in paragraphs above about going up and down the PSI tree.
+}
+```
+
+Notes on `callCheckCancelled()`:
+
+1. It is also important to have checks to see whether the task has been cancelled or not through out the code. You will find these calls in the functions to walk and up down the tree above. The idea is to include these in every iteration in a loop to ensure that the task is aborted if this task cancellation is detected as soon as possible.
+2. Also, in some other places in the code where make heavy use of the PSI API, we can avoid making these checks, since the JetBrains code is doing these cancellation checks for us. However, in places where we are mainly manipulating our own code, we have to make these checks manually.
+
+Here’s the `CheckCancelled` class that is used throughout the code.
+
+```
+fun callCheckCancelled() {
+  try {
+    checkCancelled.invoke()
+  }
+  catch (e: UninitializedPropertyAccessException) {
+    // For some tests [checkCancelled] is not initialized. And accessing a lateinit var will throw an exception.
+  }
+}
+
+/**
+ * Both parameters are marked Nullable for testing. In unit tests, a class of this object is not created.
+ */
+class CheckCancelled(private val indicator: ProgressIndicator?, private val project: Project?) {
+  operator fun invoke() {
+    if (indicator == null || project == null) return
+
+    println("Checking for cancellation")
+
+    if (indicator.isCanceled) {
+      println("Task was cancelled")
+      ApplicationManager
+          .getApplication()
+          .invokeLater {
+            Messages.showWarningDialog(
+                project, "Task was cancelled", "Cancelled")
+          }
+    }
+
+    indicator.checkCanceled()
+    // Can use ProgressManager.checkCancelled() as well, if we don't want to pass the indicator around.
+  }
+}
+```
+
+#### Additional references
+
+Please take a look at the JetBrains (JB) Platform SDK DevGuide [section on PSI](https://plugins.jetbrains.com/docs/intellij/psi.html?from=jetbrains.org).
+
+Also, please take a look at the VFS and Document section to get an idea of the other ways to access file contents in your plugin.
+
+1. [JB docs on threading](https://plugins.jetbrains.com/docs/intellij/general-threading-rules.html?from=jetbrains.org)
+2. [Threading issues](https://plugins.jetbrains.com/docs/intellij/performance.html?from=jetbrains.org#avoiding-ui-freezes)
+3. [`ExportProjectZip.java` example](https://github.com/JetBrains/android/blob/master/android/src/com/android/tools/idea/actions/ExportProjectZip.java)
+
+### Dynamic plugins
+
+One of the biggest changes that JetBrains has introduced to the platform SDK in 2020 is the introduction of [Dynamic Plugins](https://plugins.jetbrains.com/docs/intellij/dynamic-plugins.html?from=jetbrains.org). Moving forwards the use of components of any kind are banned.
+
+Here are some reasons why:
+
+1. The use of components result in plugins that are unloadable (due to it being impossible to dereference the Plugin component classes that was loaded by a classloader when IDEA itself launched).
+2. Also, they impact startup performance since code is not lazily loaded if its needed, which slows down IDEA startup.
+3. Plugins can be kept around for a long time even after they might be unloaded, due to attaching disposer to a parent that might outlive the lifetime of the project itself.
+
+In the new dynamic world, everything is loaded lazily and can be garbage collected. Here is more information on the [deprecation of components](https://plugins.jetbrains.com/docs/intellij/plugin-components.html?from=jetbrains.org).
+
+There are some caveats of doing this that you have to keep in mind if you are used to working with components.
+
+1. Here’s a [very short migration guide from JetBrains](https://plugins.jetbrains.com/docs/intellij/plugin-components.html?from=jetbrains.org) that provides some highlights of what to do in order to move components over to be services, [startup activities](https://www.plugin-dev.com/intellij/general/plugin-initial-load/), listeners, or extensions.
+2. You have to pick different parent disposables for services, extensions, or listeners (in what used to be a component). You can’t scope a [Disposable](https://plugins.jetbrains.com/docs/intellij/disposers.html?from=jetbrains.org#choosing-a-disposable-parent) to the project anymore, since the plugin can be unloaded during the life of a project.
+3. Don’t cache copies of the implementations of registered extension points, as these might cause leaks due to the dynamic nature of the plugin. Here’s more information on [dynamic extension points](https://plugins.jetbrains.com/docs/intellij/plugin-extension-points.html?from=jetbrains.org#dynamic-extension-points). These are extension points that are marked as dynamic so that IDEA can reload them if needed.
+4. Please read up on [the dynamic plugins restrictions and troubleshooting guide](https://plugins.jetbrains.com/docs/intellij/dynamic-plugins.html?from=jetbrains.org) that might be of use as you migrate your components to be dynamic.
+5. Plugins now support [auto-reloading](https://plugins.jetbrains.com/docs/intellij/ide-development-instance.html?from=jetbrains.org#enabling-auto-reload), which you can disable if this causes you issues.
+
+#### Extension points postStartupActivity, backgroundPostStartupActivity to initialize a plugin on project load
+
+There are 2 extension points to do just this `com.intellij.postStartupActivity` and `com.intellij.backgroundPostStartupActivity`.
+
+* [Official doc](https://plugins.jetbrains.com/docs/intellij/plugin-components.html?from=jetbrains.org)
+* [Usage samples](https://intellij-support.jetbrains.com/hc/en-us/community/posts/360002476840-How-to-auto-start-initialize-plugin-on-project-loaded-)
+
+Here are all the ways in which to use a `StartupActivity`:
+
+* Use a `postStartupActivity` to run something on the EDT during project open.
+* Use a `postStartupActivity` implementing `DumbAware` to run something on a background thread during project open in parallel with other dumb-aware post-startup activities. Indexing is not complete when these are running.
+* Use a `backgroundPostStartupActivity` to run something on a background thread approx 5 seconds after project open.
+* More information from the IntelliJ platform codebase about these [startup activities](https://github.com/JetBrains/intellij-community/blob/165e3b323c90e884972999e546f1e7085995ef7d/platform/service-container/overview.md).
+
+> 💡 You wil find many examples of how these can be used in the migration strategies section.
+
+#### Light services
+
+A light service allows you to declare a class as a service simply by using an annotation and not having to create a corresponding entry in `plugin.xml`.
+
+> Read all about light services [here](https://plugins.jetbrains.com/docs/intellij/plugin-services.html?from=jetbrains.org#light-services).
+
+The following are some code examples of using the `@Service` annotation for a very simple service that isn’t project or module scoped (but is application scoped).
+
+```
+import com.intellij.openapi.components.Service
+import com.intellij.openapi.components.ServiceManager
+
+@Service
+class LightService {
+
+  val instance: LightService
+    get() = ServiceManager.getService(LightService::class.java)
+
+  fun serviceFunction() {
+    println("LightService.serviceFunction() run")
+  }
+
+}
+```
+
+Notes on the snippet:
+
+* There is no need to register these w/ `plugin.xml` making them really easy to use.
+* Depending on the constructor that is overloaded, IDEA will figure out whether this is a project, module, or application scope service.
+* The only restriction to using light services is that they must be final (which all Kotlin classes are by default).
+
+> ⚠️ The use of module scoped light services are discouraged, and not supported.
+> ⚠️ You might find yourself looking for a projectService declaration that’s missing from `plugin.xml` but is still available as a service, in this case, make sure to look out for the following annotation on the service class `@Service`.
+
+Here’s a code snippet for a light service that is scoped to a project.
+
+```
+@Service
+class LightService(private val project: Project) {
+
+  companion object {
+    fun getInstance(project: Project): LightService {
+      return ServiceManager.getService(project, LightService::class.java)
+    }
+  }
+
+  fun serviceFunction() {
+    println("LightService.serviceFunction() run w/ project: $project")
+  }
+}
+```
+
+> 💡️ You can save a reference to the open project, since a new instance of a service is created per project (for project-scope services).
+
+#### Migration strategies
+
+There are a handful of ways to go about removing components and replacing them w/ services, startup activities, listeners, etc. The following is a list of common refactoring strategies that you can use depending on your specific needs.
+
+#### 1. Component -> Service
+
+In many cases you can just replace the component w/ a service, and get rid of the project opened and closed methods, along w/ the component name and dispose component methods.
+
+Another thing to watch out for is to make sure that the `getInstance()` methods all make a `getService()` call and not `getComponent()`. Look at tests as well to see if they are using `getComponent()` instead of `getService()` to get an instance of the migrated component.
+
+Here’s an XML snippet of what this might look like:
+
+```<projectService serviceImplementation="MyServiceClass" />```
+
+> 💡️ If you use a light service then you can skip registering the service class in `plugin.xml`.
+
+Here’s the code for the service class:
+
+```
+class MyServiceClass : Disposable {
+  fun dispose() { /** Custom logic that runs when the project is closed. */ }
+
+  companion object {
+    @JvmStatic
+    fun getInstance(project: Project) = project.getService(MyServiceClass::class.java)
+  }
+}
+```
+
+> 💡️ If you don’t need to perform any custom login in your service when the project is closed, then there is no need to implement `Disposable` and you can just remove the `dispose()` method.
+
+> #### Disposing the service and choosing a parent disposable
+> In order to clean up after the service, it can simply implement the `Disposable` interface and put the logic for clean up in the `dispose()` method. This should suffice for most situations, since IDEA will [automatically take care of cleaning up](https://plugins.jetbrains.com/docs/intellij/disposers.html?from=jetbrains.org#automatically-disposed-objects) the service instance.
+> 1. Application-level services are automatically disposed by the platform when the IDE is closed, or the plugin providing the service is unloaded.
+> 2. Project-level services are automatically disposed when the project is closed or the plugin is unloaded.
+> However, if you still want to exert finer control over when you want your service to be disposed, you can use `Disposer.register()` by passing a `Project` or `Application` service instance as the parent argument.
+
+> 💡️ Here’s more information from [JetBrains official docs on choosing a disposable parent](https://plugins.jetbrains.com/docs/intellij/disposers.html?from=jetbrains.org#choosing-a-disposable-parent).
+
+> #### Summary
+> 1. For resources required for the entire lifetime of a plugin use an application-level or project-level service.
+> 2. For resources required while a dialog is displayed, use a `DialogWrapper.getDisposable()`.
+> 3. For resources required while a tool window is displayed, pass your instance implementing `Disposable` to `Context.setDisposer()`.
+> 4. For resources w/ a shorter lifetime, create a disposable using a `Disposer.newDisposable()` and dispose it manually using `Disposable.dispose()`.
+> 5. Finally, when passing our own parent object be careful about non-capturing-lambdas.
+
+#### 2. Component -> postStartupActivity
+
+This is a very straightforward replacement of a component w/ a startup activity. The logic that is in `projectOpened()` simply goes into the `runActivity(project: Project)` method. The same approach used in Component -> Service still applies (w/ removing needless methods and using `getService()` calls).
+
+#### 3. Component -> postStartupActivity + Service
+
+This is a combination of the two strategies above. Here’s a pattern that you can use to detect if this is the right approach or not. If the component had some logic that executed in `projectOpened()` which requires a `Project` instance then you can do the following:
+
+1. Make the component a service in the `plugin.xml` file. Also, add a startup activity.
+2. Instead of your component extending `ProjectComponent` have it implement `Disposable` if you need to run some logic when it is disposed (when the project is closed). Or just have it not implement any interface or extend any class. Make sure to accept a parameter of `Project` in the constructor.
+3. Rename the `projectOpened()` method to `onProjectOpened()`. Add any logic you might have had in any `init{}` block or any other constructors to this method.
+4. Create a `getInstance(project: Project)` function that looks up the service instance from the given project.
+5. Create a startup activity inner class called eg: `MyStartupActivity` which simply calls `onProjectOpened()`.
+
+This is roughly what things will end up looking like:
+
+```
+<projectService serviceImplementation="MyServiceClass" />
+<postStartupActivity implementation="MyServiceClass$MyStartupActivity"/>
+```
+
+And the Kotlin code changes:
+
+```
+class MyServiceClass {
+  fun onProjectOpened() { /** Stuff. */ }
+
+  class MyStartupActivity : StartupActivity.DumbAware {
+    override fun runActivity(project: Project) = getInstance(project).onProjectOpened()
+  }
+
+  companion object {
+    @JvmStatic
+    fun getInstance(project: Project): MyServiceClass = project.getService(YourServiceClass::class.java)
+  }
+}
+```
+
+#### 4. Component -> projectListener
+
+Many components just subscribe to a topic on the message bus in the `projectOpened()` method. In these cases, it is possible to replace the component entirely by (declaratively) registering a [projectListener](https://plugins.jetbrains.com/docs/intellij/plugin-listeners.html?from=jetbrains.org) in your module’s `plugin.xml`.
+
+Here’s an XML snippet of what this might look like (goes in `plugin.xml`):
+
+```
+<listener class="MyListenerClass"
+          topic="com.intellij.execution.testframework.sm.runner.SMTRunnerEventsListener"/>
+<listener class="MyListenerClass"
+          topic="com.intellij.execution.ExecutionListener"/>
+```
+
+And the listener class itself:
+
+```
+class MyListenerClass(val project: Project) : SMTRunnerEventsAdapter(), ExecutionListener {}
+```
+
+#### 5. Component -> projectListener + Service
+
+Sometimes a component can be replaced w/ a service and a `projectListener`, which is simply combining two of the strategies shown above.
+
+#### 6. Delete Component
+
+There are some situations where the component might have been deprecated already. In this case simply remove it from the appropriate module’s `plugin.xml` and you can delete those files as well.
+
+#### 7. Component -> AppLifecycleListener
+
+There are some situations where an application component has to be launched when IDEA starts up and it has to be notified when it shuts down. In this case you can use [AppLifecycleListener](https://github.com/JetBrains/intellij-community/blob/master/platform/platform-impl/src/com/intellij/ide/AppLifecycleListener.java) to attach a [listener](https://plugins.jetbrains.com/docs/intellij/plugin-listeners.html?from=jetbrains.org) to IDEA that does just [this](https://plugins.jetbrains.com/docs/intellij/plugin-components.html?from=jetbrains.org).
+
+## VFS, Document, PSI
+
+The virtual file system (VFS) is an abstraction that is available inside the IntelliJ Platform that allows access to files on your computer (on your local file system, or even in JAR files), or from a source code repository, or over the network. There are multiple ways of accessing the contents of files in the IDE:
+
+1. VFS allows access to files at the lowest level (closest the actual file system and not an abstraction like PSI).
+2. Document provides an object model to access file contents as plain text (so its somewhere between VFS and PSI).
+3. PSI (Program Structure Interface) allows access to the contents of a file in a hierarchical object model which takes the syntax and semantics of specific languages into account (kind of like how DOM represents HTML and CSS content in a web browser). You can learn more about PSI in in this section.
+
+### VFS
+
+The VFS is what the IntelliJ Platform uses to work with files. It provides:
+
+1. A universal API for working with files regardless of where they are located (on disk, in a JAR file, on a HTTP server, in a VCS, etc).
+2. Information for tracking file modifications and providing both new and old versions of a file when a change is detected in a file.
+3. Ability to associate additional persistent data with a file in the VFS.
+
+The VFS manages a persistent snapshot of the files that are accessed via the IDE. These snapshots store only those files which have been requested at least once via the VFS API. Here are some important things to keep in mind about the nature of VFS:
+
+* The contents of the cache is refreshed asynchronously to match any changes on disk.
+* Keep in mind that the snapshot is stored at the application level, as you might expect, so a file that is open in multiple projects will only have one snapshot.
+* The snapshot is updated from disk during refresh operations, which generally happen asynchronously. All write operations made through the VFS are synchronous and the contents is saved to disk immediately.
+
+> Read more about VFS from the [official docs](https://plugins.jetbrains.com/docs/intellij/virtual-file-system.html?from=jetbrains.org).
+
+There are quite a few common scenarios that you face when using VFS to work with files that your plugin needs. The following are some of these scenarios with code samples to help you deal with them.
+
+#### Getting a list of all the virtual files in a project
+
+Snippet to get a list of virtual files by name `Lambdas.kt`.
+
+```
+fun getListOfProjectVirtualFilesByName(project: Project,
+                                     caseSensitivity: Boolean = true,
+                                     fileName: String = "Lambdas.kt"
+): MutableCollection<VirtualFile> {
+val scope = GlobalSearchScope.projectScope(project)
+return FilenameIndex.getVirtualFilesByName(
+    project, fileName, caseSensitivity, scope)
+}
+```
+
+Snippet to get a list of virtual files with extension `kt`.
+
+```
+fun getListOfProjectVirtualFilesByExt(project: Project,
+                                    caseSensitivity: Boolean = true,
+                                    extName: String = "kt"
+): MutableCollection<VirtualFile> {
+val scope = GlobalSearchScope.projectScope(project)
+return FilenameIndex.getAllFilesByExt(project, extName, scope)
+}
+```
+
+Snippet to get a list of all virtual files in a project.
+
+```
+fun getListOfAllProjectVFiles(project: Project): MutableCollection<VirtualFile> {
+  val collection = mutableListOf<VirtualFile>()
+  ProjectFileIndex.getInstance(project).iterateContent {
+    collection += it
+    // Return true to process all the files (no early escape).
+    true
+  }
+  return collection
+}
+```
+
+#### Attach listeners to see changes to virtual files programmatically
+
+You can attach the listeners programmatically or declaratively.
+
+This is the deprecated way of programmatically attaching a listener for VFS changes:
+
+```VirtualFileManager.getInstance().addVirtualFileListener()```
+
+The new way to add a listener programmatically is to listen to `VirtualFileManager.VFS_CHANGES` events on the bus (aka the topic).
+
+> There is no way to filter for these change events by path or filename, so the logic to filer out unwanted events needs to go in the listener.
+
+The following function shows how to register this in code. Note that this function runs in the EDT.
+
+```
+/**
+ * VFS listeners are application level and will receive events for changes happening in all the projects opened by the
+ * user. You may need to filter out events that aren’t relevant to your task (e.g., via
+ * `ProjectFileIndex#isInContent()`). A listener for VFS events, invoked inside write-action.
+ */
+private fun attachListenerForProjectVFileChanges(): Unit {
+  println("MyPlugin: attachListenerForProjectFileChanges()")
+
+  val connection = project.messageBus.connect(/*parentDisposable=*/ project)
+  connection.subscribe(
+      VirtualFileManager.VFS_CHANGES,
+      object : BulkFileListener {
+        override fun after(events: List<VFileEvent>) = doAfter(events)
+      })
+}
+
+fun handleEvent(event: VFileEvent) {
+  when (event) {
+    is VFilePropertyChangeEvent -> {
+      println("VFile property change event: $event")
+    }
+    is VFileContentChangeEvent  -> {
+      println("VFile content change event: $event")
+    }
+  }
+}
+
+fun doAfter(events: List<VFileEvent>) {
+  println("VFS_CHANGES: #events: ${events.size}")
+  val projectFileIndex = ProjectRootManager.getInstance(project).fileIndex
+  events.withIndex().forEach { (index, event) ->
+    println("$index. VFile event: $event")
+    // Filter out file events that are not in the project's content.
+    events
+        .filter { it.file != null && projectFileIndex.isInContent(it.file!!) }
+        .forEach { handleEvent(it) }
+  }
+}
+```
+
+Using this approach, the code attaching the listener itself has to be run at some point. So if this is a listener that should run when your project is opened, then you might need to add a `postStartupActivity`, which is just a class supplied by your plugin that will be run after the IDE opens a project. Please read all about this in the dynamic plugins section.
+
+> 💡 You might want to use this approach over the declarative approach shown below in case you want a reference to the currently open project.
+
+#### Attach listeners to see changes to virtual files declaratively
+
+You can also register a listener declaratively in your `plugin.xml`. There are some differences to using this approach over the code approach shown above. Instead of subscribing to a topic, you can simply register a listener for a specific event class in your plugin.xml.
+
+Here’s a snippet that does something similar to the code above. So the `VirtualFileManager.VFS_CHANGES` topic is equivalent to the `com.intellij.openapi.vfs.newvfs.BulkFileListener` class.
+
+```
+<applicationListeners>
+  <listener class="MyListener" topic="com.intellij.openapi.vfs.newvfs.BulkFileListener"/>
+</applicationListeners>
+```
+
+Here’s the code.
+
+```
+class MyVfsListener : BulkFileListener {
+  @Override
+  fun after(@NotNull events: List<VFileEvent?>?) {
+    // handle the events
+  }
+}
+```
+
+> Here’s more information on registering VFS listeners in the [official docs](https://plugins.jetbrains.com/docs/intellij/plugin-listeners.html?from=jetbrains.org#defining-application-level-listeners).
+
+
+> 💡 You can also declaratively attach listeners that are scoped to a project. However, this requires that the interface / class that you will register in the XML can take a project object as a parameter. In the case of VFS listeners it does not take a project parameter, since VFS operations are application level. So if you want to get a hold of the currently open project, then you have to use the programmatic approach.
+
