@@ -535,10 +535,10 @@ In this example, we will be modifying a Markdown document. So we will use this p
 
 1.  Open Settings -> PSIViewer and change the highlight colors to something that you like and make sure to set the alpha to 255 for both references and highlighting.
 2.  Open the PSIViewer tool window and enable the following options in the toolbar:
-** Enable highlight (you might want to disable this when you’re done playing around w/ the tool window)
-** Enable properties
-** Enable scroll to source
-** Enable scroll from source
+    * Enable highlight (you might want to disable this when you’re done playing around w/ the tool window)
+    * Enable properties
+    * Enable scroll to source
+    * Enable scroll from source
 
 A great example that can help us understand how PSI modification can work is taking a look at the built-in Markdown plugin actions themselves. There are a few actions in the toolbar of every Markdown editor: “toggle bold”, “toggle italic”, etc.
 
