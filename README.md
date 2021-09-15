@@ -16,7 +16,7 @@ In order to be successful creating advanced plugins, this is what I suggest:
 2. Use the [Official JetBrains IntelliJ Platform SDK](https://plugins.jetbrains.com/docs/intellij/welcome.html) docs, along with the source code examples (from the list of repos above) to get a better understanding of how to create plugins. 
 3. When you are looking for something not in tutorials here (on developerlife.com) and in the official docsd, then search the [intellij-community](https://github.com/JetBrains/intellij-community) repo itself to find code examples on how to use APIs that might not have any documentation. An effective approach is to find some functionality in IDEA that is similar to what you are looking to build, and then locate the source code for that feature in the repo and see how JetBrains has done it.
 
-## [IDEA threading model](https://github.com/bytebeats/Guide-to-developing-IntelliJ-plugins/blob/main/idea_threading_model.md)
+## [IDEA threading model](https://github.com/bytebeats/Guide-to-developing-IntelliJ-plugins/blob/main/en/idea_threading_model.md)
 
 * What was submitTransaction() all about?
 * What is a write-safe context?
@@ -27,7 +27,7 @@ In order to be successful creating advanced plugins, this is what I suggest:
   * Asynchronous execution of Runnable (from a write-unsafe / write-safe context using submitTransaction())
 * Side effect - invokeLater() vs submitTransaction() and impacts on test code
 
-## [PSI access and mutation](https://github.com/bytebeats/Guide-to-developing-IntelliJ-plugins/blob/main/psi_access_and_mutation.md)
+## [PSI access and mutation](https://github.com/bytebeats/Guide-to-developing-IntelliJ-plugins/blob/main/en/psi_access_and_mutation.md)
 
 * How to create a PSIFile or get a reference to one
 * PSI Access
@@ -44,7 +44,7 @@ In order to be successful creating advanced plugins, this is what I suggest:
   * Threading considerations
 * Additional references
 
-## [Dynamic plugins](https://github.com/bytebeats/Guide-to-developing-IntelliJ-plugins/blob/main/dynamic_plugins.md)
+## [Dynamic plugins](https://github.com/bytebeats/Guide-to-developing-IntelliJ-plugins/blob/main/en/dynamic_plugins.md)
 
 * Extension points postStartupActivity, backgroundPostStartupActivity to initialize a plugin on project load
 * Light services
@@ -57,7 +57,7 @@ In order to be successful creating advanced plugins, this is what I suggest:
   6. Delete Component
   7. Component -> AppLifecycleListener
 
-## [VFS, Document, PSI](https://github.com/bytebeats/Guide-to-developing-IntelliJ-plugins/blob/main/vfs_document_psi.md)
+## [VFS, Document, PSI](https://github.com/bytebeats/Guide-to-developing-IntelliJ-plugins/blob/main/en/vfs_document_psi.md)
 
 * VFS
   * Getting a list of all the virtual files in a project
@@ -68,7 +68,7 @@ In order to be successful creating advanced plugins, this is what I suggest:
 * Document
   * Example of an action that uses the Document API
 
-## [UI(JetBrains UI components, Swing and Kotlin UI DSL)](https://github.com/bytebeats/Guide-to-developing-IntelliJ-plugins/blob/main/intellij_plugin_sdk_ui.md)
+## [UI(JetBrains UI components, Swing and Kotlin UI DSL)](https://github.com/bytebeats/Guide-to-developing-IntelliJ-plugins/blob/main/enintellij_plugin_sdk_ui.md)
 
 * Simple UI components - notifications, popups, dialogs
   * Notifications
