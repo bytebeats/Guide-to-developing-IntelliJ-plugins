@@ -46,53 +46,53 @@ README: [English](https://github.com/bytebeats/Guide-to-developing-IntelliJ-plug
 
 ## [动态插件](https://github.com/bytebeats/Guide-to-developing-IntelliJ-plugins/blob/main/en/dynamic_plugins.md)
 
-* Extension points postStartupActivity, backgroundPostStartupActivity to initialize a plugin on project load
-* Light services
-* Migration strategies
-  1. Component -> Service
-  2. Component -> postStartupActivity
-  3. Component -> postStartupActivity + Service
-  4. Component -> projectListener
-  5. Component -> projectListener + Service
-  6. Delete Component
-  7. Component -> AppLifecycleListener
+* 扩展点postStartupActivity和backgroundPostStartupActivity在项目加载时初始化插件
+* 轻服务
+* 迁移策略
+  1. 组件 -> 服务
+  2. 组件 -> postStartupActivity
+  3. 组件 -> postStartupActivity + 服务
+  4. 组件 -> projectListener
+  5. 组件 -> projectListener + 服务
+  6. 删除组件
+  7. 组件 -> AppLifecycleListener
 
 ## [VFS, Document, PSI](https://github.com/bytebeats/Guide-to-developing-IntelliJ-plugins/blob/main/en/vfs_document_psi.md)
 
-* VFS
-  * Getting a list of all the virtual files in a project
-  * Attach listeners to see changes to virtual files programmatically
-  * Attach listeners to see changes to virtual files declaratively
-  * Asynchronously process file system events
-  * Intercept when the currently open file gets saved
-* Document
-  * Example of an action that uses the Document API
+* VFS: 虚拟文件系统
+  * 获取项目中全部虚拟文件
+  * 以编程的方式添加监听器来查看虚拟文件的变化
+  * 以声明的方式添加监听器来查看虚拟文件的变化
+  * 异步处理文件系统的事件
+  * 当前打开文件在保存时拦截
+* Document: 文档
+  * 示例:  如何使用 Document API.
 
 ## [UI(JetBrains UI components, Swing and Kotlin UI DSL)](https://github.com/bytebeats/Guide-to-developing-IntelliJ-plugins/blob/main/enintellij_plugin_sdk_ui.md)
 
-* Simple UI components - notifications, popups, dialogs
-  * Notifications
-  * Popups
-  * Dialogs
-* Create complex UIs using Kotlin UI DSL (forms, dialogs, settings screens)
-  * Understanding the structure of the DSL (layout, row, and cell)
-  * How to bind data to the form UI
-  * What UI elements are available for use in the forms
-  * How to display a form in a dialog
-  * How to persist the data created/selected by the user, between IDE restarts (PersistentStateComponent)
-  * Example of a form UI
-  * MigLayout, panel, and grow
-* Create IDE Settings UI for plugin
-* Complex UI creation in dialogs
-* Adding your plugin UI in Tool windows
-  * 1. Declarative tool window
-  * 2. Programmatic tool window
-  * Indices and dumb aware
-  * Creating a content for any kind of tool window
-  * Content closeability
-* Add Line marker provider in your plugin
-  * Example of a provider for Markdown language
-  * 1. Declare dependencies
-  * 2. Register the provider in XML
-  * 3. Provide an implementation of LineMarkerProvider
-  * 4. Provide a more complex implementation of LineMarkerProvider
+* 简单 UI 组件 - 通知, 弹出框, 对话框
+  * 通知
+  * 弹出框
+  * 对话框
+* 使用 Kotlin UI DSL 创建复杂 UI (表格, 对话框, 设置)
+  * 理解 DSL 的结构(layout, row, and cell)
+  * 表格 UI 如何绑定数据
+  * 表格中哪些 UI 元素可用
+  * 对话框中如何展示表格
+  * 在 IDE 重启之间, 用户创建或者选择的数据如何持久化(PersistentStateComponent)
+  * 示例: 表格 UI
+  * MigLayout, panel 和 grow
+* 为插件创建设置 UI
+* 对话框中创建复杂 UI
+* 工具窗口中添加插件 UI
+  * 1. 声明式工具窗口
+  * 2. 编码式工具窗口
+  * 索引和 DumbAware
+  * 为工具窗口创建内容
+  * 内容可关闭性
+* Add Line marker provider in your plugin插件中添加 Line Marker
+  * 示例: Markdown语言提供者
+  * 1. 声明依赖
+  * 2. 在XML中注册提供者
+  * 3. 提供 LineMarkerProvider 的实现
+  * 4. 提供 LineMarkerProvider 的复杂实现
