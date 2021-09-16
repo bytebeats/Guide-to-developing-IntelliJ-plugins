@@ -31,15 +31,15 @@
 来自 `TransactionGuard.java` [Java 文档](https://github.com/JetBrains/intellij-community/blob/master/platform/core-api/src/com/intellij/openapi/application/TransactionGuard.java#L25) 解释了什么写安全上下文:
 * 是一种机制, 能够保证在对话框打开的时候, 没人能够通过 `SwingUtilities#invokeLater()` 或者类似 API 来执行意外的 IDE 模型数据修改.
 
-Here are some examples of write-safe contexts:
+写安全上下文的示例代码:
 
 * `Application#invokeLater(Runnable, ModalityState)` calls with a modality state that’s either non-modal or was started inside a write-safe context. The use cases shown in the sections below are related to the non-modal scenario.
 * Direct user activity processing (key/mouse presses, actions) in non-modal state.
 * User activity processing in a modality state that was started (e.g. by showing a dialog or progress) in a write-safe context.
 
-Here is more information about how to handle code running on the EDT:
+想了解更多信息关于如何处理在 EDT 上运行的代码, 请看下面:
 
-* Code running in the EDT is not necessarily in a write-safe context, which is why `submitTransaction()` provided the mechanism to execute a given `Runnable` in a write-safe context (on the EDT itself).
+* 运行在 EDT 上面的代码不必处于写安全上下文, 这就是为什么 `submitTransaction()` 提供了这种机制来执行给定的 `Runnable` (EDT 本身就是写安全的上下文).
 * There are some exceptions to this, for example code running in actions in a non-modal state, while running on the EDT are also running in a write-safe context (described above).
 * The JavaDocs from [`@DirtyUI` annotation source](https://github.com/JetBrains/intellij-community/blob/master/platform/util/ui/src/com/intellij/ui/DirtyUI.java#L8) also provide some more information about UI code running in the EDT and write actions.
 ```
