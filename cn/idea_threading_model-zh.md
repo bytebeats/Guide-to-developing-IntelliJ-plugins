@@ -1,35 +1,35 @@
-## IDEA threading model
+## IDEA 线程模型
 
-For the most part, the code that you write in your plugins is executed on the main thread. Some operations such as changing anything in the IDE’s “data model” (PSI, VFS, project root model) all have to done in the main thread in order to keep race conditions from occurring. Here’s the [official docs](https://plugins.jetbrains.com/docs/intellij/general-threading-rules.html#modality-and-invokelater) on this.
+大多数情况下你在插件中写的代码都在主线程中执行. 一些操作, 诸如在 IDE 的"数据模型"(PSI, VFS, 项目根模型)中修改数据等, 必须在主线程中有序完成, 以避免竞争条件的发生. 这是[官方文档](https://plugins.jetbrains.com/docs/intellij/general-threading-rules.html#modality-and-invokelater)关于这些内容的详细说明.
 
-There are many situations where some of your plugin code needs to run in a background thread so that the UI doesn’t get frozen when long running operations occur. The plugin SDK has quite a few strategies to allow you to do this. However, one thing that you should not do is use `SwingUtilities.invokeLater()`.
-1.  One of the ways that you could run background tasks is by using `TransactionGuard.submitTransaction()` but that has been deprecated.
-2.  The new way is to use `ApplicationManager.getApplication().invokeLater()`.
+然而在许多情况下, 插件中的部分代码需要在后台运行, 以免长时间运行的操作导致 UI 卡顿. 插件 SDK 恰好提供了一些策略来实现代码的后台运行. 然而, 后台线程运行却不应该使用`SwingUtilities.invokeLater()`.
+1.  运行后台任务的方式之一是使用 `TransactionGuard.submitTransaction()`, 但是它却已经被废弃了.
+2.  新的方式是使用 `ApplicationManager.getApplication().invokeLater()`.
 
-> # API deprecations
-> * You can find a detailed list of the major API deprecations and changes in various versions of IDEA [here](https://plugins.jetbrains.com/docs/intellij/api-notable.html).
-> * You can search the JB platform codebase for deprecations by looking for `@ApiStatus.ScheduledForRemoval(inVersion = <version>)`, where `<version>` can be `2020.1`, etc.
+> ### 废弃 API
+> * 你可以找到主要废弃 API 的详细列表和在不同版本 IDEA 中变化[点击这里](https://plugins.jetbrains.com/docs/intellij/api-notable.html).
+> * 你可以在 JB 平台代码库中通过 `@ApiStatus.ScheduledForRemoval(inVersion = <version>)` 查找废弃 API, 其中 `<version>` 可以是 `2020.1` 等.
 
-However, before we can understand what all of this means exactly, there are some important concepts that we have to understand - “modality”, and “write lock”, and “write-safe context”. So we will start with talking about `submitTransaction()` and get to each of these concepts along the way to using `invokeLater()`.
+然而, 我们能够准确地理解所有这些之前, 有几个重要概念我们需要理解: - “modality”和“写锁”和“写安全上下文”. 所以我们从 `submitTransaction()` 和 `invokeLater()` 开始接触每一个概念.
 
-## What was submitTransaction() all about?
+## 什么是 submitTransaction() ?
 
-The now deprecated `TransactionGuard.submitTransaction(Runnable)` basically runs the passed `Runnable` in:
-1.  a write-safe context (which simply ensures that no one will be able to perform an unexpected IDE model data changes using `SwingUtilities#invokeLater()`, or equivalent APIs, while a dialog is shown).
-2.  in a write thread (eg the EDT).
+现在废弃的 `TransactionGuard.submitTransaction(Runnable)` 基本上是运行传入的 `Runnable`:
+1.  在写安全的上下文中 (这能够保证在对话框打开的时候, 没有人能够通过 `SwingUtilities#invokeLater()`或者等价的 API 来执行意外的数据模型修改).
+2.  在写线程中 (如EDT).
 
-However, `submitTransaction()` does not acquire a write lock or start a write action (this must be done explicitly by your code if you need to modify IDE model data).
+然而, `submitTransaction()` 并不能获得写锁或者开启写任务(如果需要修改 IDE 模型数据, 你必须通过代码显式地这些做).
 
-> What does a write action have to do with a write-safe context? Nothing. However, it easy to conflate the two concepts and think that a write-safe context has a write lock; it does not. These are two separate things -
-> 1.  write-safe context,
-> 2.  write lock.
-> You can be in a write-safe context, and you will still need to acquire a write lock to mutate IDE model data. You can also use the following methods to check if your execution context already holds the write lock:
+> 写任务必须在写安全上下文中做些事情吗? 不. 然而, 这两个概念很容易混淆. 而且写安全上下文很容易被认为有写锁. 其实它并没有. 这两个事情是毫无关联的 -
+> 1.  写安全上下文,
+> 2.  写锁.
+> 你可能处于写安全上下文但仍然需要获取写锁来修改 IDE 模型数据. 你也可以使用以下方式来检测执行上下文是否已经持有写锁:
 > 1.  `ApplicationManager.getApplication().isWriteAccessAllowed()`.
 > 2.  `ApplicationManager.getApplication().assertWriteAccessAllowed()`.
 
-## What is a write-safe context?
-The [JavaDocs](https://github.com/JetBrains/intellij-community/blob/master/platform/core-api/src/com/intellij/openapi/application/TransactionGuard.java#L25) from `TransactionGuard.java` explain what a write-safe context is:
-* A mechanism to ensure that no one will be able to perform an unexpected IDE model data changes using `SwingUtilities#invokeLater()` or analogs while a dialog is shown.
+## 什么是写安全上下文?
+来自 `TransactionGuard.java` [Java 文档](https://github.com/JetBrains/intellij-community/blob/master/platform/core-api/src/com/intellij/openapi/application/TransactionGuard.java#L25) 解释了什么写安全上下文:
+* 是一种机制, 能够保证在对话框打开的时候, 没人能够通过 `SwingUtilities#invokeLater()` 或者类似 API 来执行意外的 IDE 模型数据修改.
 
 Here are some examples of write-safe contexts:
 
