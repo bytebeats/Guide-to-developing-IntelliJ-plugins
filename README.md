@@ -68,7 +68,7 @@ In order to be successful creating advanced plugins, this is what I suggest:
 * Document
   * Example of an action that uses the Document API
 
-## [UI(JetBrains UI components, Swing and Kotlin UI DSL)](https://github.com/bytebeats/Guide-to-developing-IntelliJ-plugins/blob/main/enintellij_plugin_sdk_ui.md)
+## [UI(JetBrains UI components, Swing and Kotlin UI DSL)](https://github.com/bytebeats/Guide-to-developing-IntelliJ-plugins/blob/main/en/intellij_plugin_sdk_ui.md)
 
 * Simple UI components - notifications, popups, dialogs
   * Notifications
