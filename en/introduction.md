@@ -1,5 +1,4 @@
-# introduction-to-developing-IntelliJ-plugins
-Basic introduction to developing IntelliJ IDEA plugins.
+# Basic Introduction to Developing IntelliJ Platform Plugins.
 
 README: [English](https://github.com/bytebeats/Guide-to-developing-IntelliJ-plugins/blob/main/introduction.md) | [中文](https://github.com/bytebeats/Guide-to-developing-IntelliJ-plugins/blob/main/introduction-zh.md)
 
