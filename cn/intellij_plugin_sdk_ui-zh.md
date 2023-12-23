@@ -1,33 +1,33 @@
-## UI (JetBrains UI components, Swing and Kotlin UI DSL)
+## UI (JetBrains UI 组件, Swing 和 Kotlin UI DSL)
 
-There are many ways for a plugin to interact w/ an end user - keyboard shortcuts that bind to actions, and UI components that the plugin provides, which can be totally custom, or integrated into the existing IDE’s UI components. JetBrains also provides many UI controls that are applicable for different scenarios.
+插件与终端用户交互的方式有很多种 -- 与操作绑定的键盘快捷方式, 以及插件提供的 UI 组件, 这些组件可以完全自定义, 也可以集成到现有集成开发环境的 UI 组件中. JetBrains 还提供了许多适用于不同场景的 UI 控件.
 
-There is a range of components that span from simple fire and forget notifications, to more sophisticated UI that allows intense interaction w/ the user. There is even a Kotlin DSL for UI components that makes it relatively easy to create forms in IDEA.
+从简单的发送通知和忽略通知, 到可以与用户进行密切交互的更复杂的 UI , 这些组件应有尽有.  UI 组件甚至还有一个 Kotlin DSL, 这使得在 IDEA 中创建表格变得相对容易.
 
-There is even a way to create forms using Swing, which is being phased out in favor of the Kotlin UI DSL. In addition to all of this, you can even create custom themes for IDEA.
+甚至还有一种使用 Swing 创建表格的方法, 但这种方法正逐渐被淘汰, 取而代之的是 Kotlin UI DSL. 除此之外, 你甚至还可以为 IDEA 创建自定义主题.
 
-One effective approach to writing UI code for plugins is to take a look at how some UI code is written in `intellij-community` repo itself, to see how JetBrains does it. Documentation is sparse to non existent, and the best way sometimes is to take a look at the source for IDEA itself to find out how certain UI is created.
+为插件编写 UI 代码的一个有效方法是看看`intellij-community`仓库中的 UI 代码是如何编写的, 看看 JetBrains 是如何做的. 文档很少, 甚至根本不存在, 有时最好的办法是查看 IDEA 本身的源代码, 了解某些 UI 是如何创建的.
 
-Here are good resources to take a look when considering writing UI code for plugins.
+在考虑为插件编写 UI 代码时, 可以参考以下资源.
 
-* [Swing Layout Managers](https://docs.oracle.com/javase/tutorial/uiswing/layout/visual.html)
-* [Introduction to Swing](https://docs.oracle.com/javase/tutorial/uiswing/index.html)
-* [MigLayout, used in Kotlin UI DSL](https://github.com/mikaelgrev/miglayout)
+* [Swing 布局管理器](https://docs.oracle.com/javase/tutorial/uiswing/layout/visual.html)
+* [Swing 简介](https://docs.oracle.com/javase/tutorial/uiswing/index.html)
+* [在 Kotlin UI DSL 中使用的MigLayout](https://github.com/mikaelgrev/miglayout)
 
-### Simple UI components - notifications, popups, dialogs
+### 简单的 UI 组件 - 通知, 弹出窗口, 对话框
 
-This section covers some simple UI components, and the next sections get into more sophisticated interactions w/ users (via forms, dialogs, and the settings UI).
+本节将介绍一些简单的 UI 组件, 接下来的章节将介绍与用户之间更复杂的交互(通过表单, 对话框和设置 UI)
 
-#### Notifications
+#### 通知
 
-Notifications are a really simple way to provide some information to the user. You can even attach actions to notifications in case you want the user to perform an action when they get notified.
+通知是向用户提供某些信息的一种非常简单的方式. 如果希望用户在收到通知时执行操作, 您甚至可以为通知附加操作.
 
-* Notifications show up in the “Event Log” tool window in the IDE.
-* You can choose to have any shown notifications to be logged as well.
-* Notifications can be project specific (and be shown in the IDE window containing a project), or be a general notification for the entire IDE.
-* Here are the [official docs](https://plugins.jetbrains.com/docs/intellij/notifications.html?from=jetbrains.org) on notifications.
+* 通知会显示在集成开发环境的`Event Log`工具窗口中.
+* 你可以选择将任何显示的通知也记录在案.
+* 通知可以是针对特定项目的(并显示在包含项目的集成开发环境窗口中), 也可以是针对整个集成开发环境的一般通知.
+* 以下是关于通知的[官方文档](https://plugins.jetbrains.com/docs/intellij/notifications.html?from=jetbrains.org).
 
-This is an example of a simple action that displays two notifications using slightly different ways. Here is the snippet for this action that goes into `plugin.xml`.
+这是一个简单操作的示例, 使用略有不同的方式显示两个通知. 下面是该操作在`plugin.xml`中的代码段.
 
 ```
 <actions>
@@ -37,7 +37,7 @@ This is an example of a simple action that displays two notifications using slig
 </actions>
 ```
 
-Here’s the start of the class that implements this action, to set things up.
+下面是实现此操作的类的开头, 以便进行设置.
 
 ```
 package ui
@@ -56,7 +56,7 @@ class ShowNotificationSampleAction : AnAction() {
   private fun aNotification() {...}
 ```
 
-Approach 1 - The following is an example of using a static method on the `Notifications.Bus` to display a notification.
+方法 1 - 下面是使用`Notifications.Bus`上的静态方法显示通知的示例.
 
 ```
 /**
@@ -73,7 +73,7 @@ private fun aNotification() {
 }
 ```
 
-Approach 2 - Here’s an another way to show notifications by creating a notification group.
+方法 2 - 下面是另一种通过创建通知组来显示通知的方法.
 
 ```
 /**
@@ -92,16 +92,16 @@ private fun anotherNotification(e: AnActionEvent) {
 }
 ```
 
-#### Popups
+#### 弹出窗口
 
-Popups are a way to get some input from the user w/out interrupting what they’re doing. Popups are displayed w/out any chrome (UI to close them), and they disappear automatically when they lose keyboard focus. IDE uses them extensively in type ahead completion, auto complete, etc.
+弹框是一种获取用户输入信息的方式, 而不会打断用户正在进行的操作. 弹出式窗口显示时不使用依赖任何 UI 以关闭弹出式窗口, 而是在失去键盘焦点时会自动消失. IDE在键入超前补全, 自动补全等功能中广泛使用弹出窗口.
 
-* Popups allow the user to make a single choice from a list of options that are displayed. Once the user makes a choice you can provide some code (`itemChosenCallback`) that will be run on this selection.
-* Popups can display a title.
-* They can be movable and resizable (and support remembering their size).
-* They can even be nested (show another popup when an item is selected).
+* 弹出窗口允许用户从显示的选项列表中做出单项选择. 一旦用户做出选择, 您可以提供一些代码(`itemChosenCallback`)来运行该选择.
+* 弹出窗口可以显示标题.
+* 可以移动和调整大小(并支持记忆大小).
+* 它们甚至可以嵌套(当一个项目被选中时显示另一个弹出窗口).
 
-The following is an example of an action that shows two nested popups. Here’s the snippet from `plugin.xml` for registering the action.
+下面是一个显示两个嵌套弹出窗口的操作示例. 下面是`plugin.xml`中用于注册该操作的代码段.
 
 ```
 <!-- Add popup action. -->
@@ -109,7 +109,7 @@ The following is an example of an action that shows two nested popups. Here’s 
     description="Shows sample popups" icon="/icons/ic_extension.svg" />
 ```
 
-Here’s the class that implements the action (which shows one popup, and when the user selects an option in the first popup, the second one is shown). It shows multiple ways in which a popup can be created to display a list of items. One approach is to use the `createPopupChooserBuilder()`, and the other is to use `createListPopup()`, both of which are methods on [JBPopupFactory.getInstance()](https://github.com/JetBrains/intellij-community/blob/master/platform/platform-api/src/com/intellij/openapi/ui/popup/JBPopupFactory.java) method.
+下面是实现该操作(显示一个弹出窗口, 当用户在第一个弹出窗口中选择一个选项时, 第二个弹出窗口就会显示)的类. 它展示了创建弹出窗口以显示项目列表的多种方法. 一种方法是使用`createPopupChooserBuilder()`, 另一种方法是使用`createListPopup()`, 这两种方法都是[JBPopupFactory.getInstance()](https://github.com/JetBrains/intellij-community/blob/master/platform/platform-api/src/com/intellij/openapi/ui/popup/JBPopupFactory.java)方法返回的类的方法.
 
 ```
 package ui
@@ -154,13 +154,13 @@ class MyList(val onChosenHandler: (String) -> Unit) : BaseListPopupStep<String>(
 }
 ```
 
-#### Dialogs
+#### 对话框
 
-When user input is required by your plugin dialogs might be the right component to use. They are modal unlike notifications and popups. IDEA allows a simple boolean response to be returned from a dialog.
+当你的插件需要用户输入时, 对话框可能是合适的组件. 与通知和弹出窗口不同, 对话框是模态的. IDEA 允许从对话框返回简单的布尔值响应.
 
-In order to create sophisticated UIs that go inside the dialog, it is best to use the Kotlin UI DSL.
+为了在对话框中创建复杂的 UI , 最好使用 Kotlin UI DSL.
 
-Here’s a really simple example of an action that shows a dialog displaying “Press OK or Cancel” and allowing the user and showing OK and Cancel buttons. Here’s the snippet for `plugin.xml`.
+下面是一个非常简单的操作示例, 对话框显示"按确定或取消", 允许用户按确定和取消按钮. 下面是`plugin.xml`的代码段.
 
 ```
 <!-- Add dialog action. -->
@@ -168,7 +168,7 @@ Here’s a really simple example of an action that shows a dialog displaying “
     description="Show sample dialog" icon="/icons/ic_extension.svg" />
 ```
 
-Here’s the action that uses the [DialogWrapper](https://github.com/JetBrains/intellij-community/blob/master/platform/platform-api/src/com/intellij/openapi/ui/DialogWrapper.java) class to actually show the dialog.
+下面是使用[DialogWrapper](https://github.com/JetBrains/intellij-community/blob/master/platform/platform-api/src/com/intellij/openapi/ui/DialogWrapper.java)类实际显示对话框的操作.
 
 ```
 package ui
@@ -197,22 +197,22 @@ class SampleDialogWrapper : DialogWrapper(true) {
 }
 ```
 
-Note that in this case, `showAndGet()` is used to both show the dialog, and get the response. You can also break this into two steps with `show()` and `isOK()`.
+请注意, 在本例中, `showAndGet()`既用于显示对话框, 也用于获取响应. 你也可以使用`show()`和`isOK()`将其分为两步.
 
-> Please refer to the [official docs](https://github.com/JetBrains/intellij-community/blob/master/platform/platform-api/src/com/intellij/openapi/ui/DialogWrapper.java) for more information on dialogs.
-> For more information on Swing layout managers, please refer to this [Java Tutorial article](https://docs.oracle.com/javase/tutorial/uiswing/layout/visual.html).
+> 有关对话框的更多信息, 请参阅[官方文档](https://github.com/JetBrains/intellij-community/blob/master/platform/platform-api/src/com/intellij/openapi/ui/DialogWrapper.java).
+> 有关 Swing 布局管理器的更多信息, 请参阅此[Java辅导文章](https://docs.oracle.com/javase/tutorial/uiswing/layout/visual.html).
 
-### Create complex UIs using Kotlin UI DSL (forms, dialogs, settings screens)
+### 使用 Kotlin UI DSL 创建复杂的 UI (表单, 对话框, 设置屏幕)
 
-In the sections below, we will be using `DialogWrapper` to take the UI we create using the Kotlin UI DSL and show them.
+在下面的章节中, 我们将使用`DialogWrapper`来获取使用 Kotlin UI DSL 创建的 UI 并将其展示出来.
 
-In order to create more complex UIs, you can use the Kotlin UI DSL. You can display these forms in the IDEA Settings UI, or directly in a dialog box. You can also bind the forms to data objects, that you can persist across IDE restarts as well.
+为了创建更复杂的 UI , 你可以使用 Kotlin UI DSL. 你可以在 IDEA 设置 UI 中显示这些表单, 也可以直接在对话框中显示. 你还可以将表单绑定到数据对象, 这样你就可以在 IDEA 重启时持久保存这些数据对象.
 
-#### Understanding the structure of the DSL (layout, row, and cell)
+#### 理解 DSL 的结构(布局, 行和单元格)
 
-The Kotlin UI DSL allows UIs to be expressed in a layout that contains rows and cells. Things are left to right aligned inside of each row, but you can specify if an item needs to be right aligned. Type ahead completion in the IDE also provides guidance on how to use this DSL.
+Kotlin UI DSL 允许以包含行和单元格的布局来表达 UI. 每一行中的内容都是从左到右对齐的, 但你也可以指定某个项目是否需要右对齐. IDE中的超前类型完成也为如何使用该 DSL 提供了指导.
 
-Here’s an example of a simple UI using this DSL, which contains the following UI components.
+下面是一个使用此 DSL 的简单 UI 示例, 其中包含以下 UI 组件.
 
 1. `textField`
 2. `spinner`
@@ -259,27 +259,27 @@ fun createDialogPanel(): DialogPanel = panel {
 }
 ```
 
-#### How to bind data to the form UI
+#### 如何将数据绑定到表单 UI
 
-One really simple way of binding the UI to a data object that you create is by passing a reference to the `KProperty` for each property that should be rendered by a UI component. This ensures that:
+将 UI 与你创建的数据对象绑定的一个非常简单的方法是, 为每个应由 UI 组件呈现的属性传递对`KProperty`的引用. 这样可以确保:
 
-1. The data object populates the UI component to its correct initial state before it is shown.
-2. When the user manipulates the UI component and its state changes, this is reflected in the data object’s property.
+1. 在显示 UI 组件之前, 数据对象会将其填充到正确的初始状态.
+2. 当用户操作 UI 组件并使其状态发生变化时, 数据对象的属性也会随之发生变化.
 
-In the example above, note that some UI components that hold state information require a Kotlin property (from a data object that you provide) to bind to. This is an easy way that the DSL handles data binding in the forms for you.
+在上面的示例中, 需要注意的是, 某些保存状态信息的 UI 组件需要绑定一个 Kotlin 属性(来自你提供的数据对象). 这是 DSL 在表单中为你处理数据绑定的一种简单方法.
 
-It is possible to provide explicit setters and getters as well instead of just using the [KProperty](https://kotlinlang.org/api/latest/jvm/stdlib/kotlin.reflect/-k-property/). This makes it really simple to create forms, since the state is loaded and saved for you, automatically.
+你还可以提供显式的setter和getter, 而不是仅仅使用[KProperty](https://kotlinlang.org/api/latest/jvm/stdlib/kotlin.reflect/-k-property/). 这使得创建表格变得非常简单, 因为状态会自动加载和保存.
 
-#### What UI elements are available for use in the forms
+#### 表单中可使用哪些 UI 元素
 
-1. The panel function creates a [LayoutBuilder](https://github.com/JetBrains/intellij-community/blob/master/platform/platform-impl/src/com/intellij/ui/layout/LayoutBuilder.kt) and inside of this you can add row (or `noteRow`, or `titledRow`, etc). Check out [RowBuilder](https://github.com/JetBrains/intellij-community/blob/master/platform/platform-impl/src/com/intellij/ui/layout/Row.kt) to see all the row based components you can add here.
-2. To see what objects can be added inside each `row`, check out [Cell](https://github.com/JetBrains/intellij-community/blob/master/platform/platform-impl/src/com/intellij/ui/layout/Cell.kt). You can add things like `browserLink`, `comboBox`, `checkBox`, etc.
+1. `panel`函数会创建一个[LayoutBuilder](https://github.com/JetBrains/intellij-community/blob/master/platform/platform-impl/src/com/intellij/ui/layout/LayoutBuilder.kt), 你可以在其中添加行(或`noteRow`或`titledRow`等). 请查看[RowBuilder](https://github.com/JetBrains/intellij-community/blob/master/platform/platform-impl/src/com/intellij/ui/layout/Row.kt), 了解你可以在此添加的所有基于行的组件.
+2. 要查看每个`row`内可以添加哪些对象, 请查看[Cell](https://github.com/JetBrains/intellij-community/blob/master/platform/platform-impl/src/com/intellij/ui/layout/Cell.kt). 你可以添加诸如`browserLink`,`comboBox`,`checkBox`等对象.
 
-> Please make sure to read the [official docs](https://plugins.jetbrains.com/docs/intellij/kotlin-ui-dsl.html?from=jetbrains.org) on the DSL.
+> 请务必阅读有关 DSL 的[官方文档](https://plugins.jetbrains.com/docs/intellij/kotlin-ui-dsl.html?from=jetbrains.org).
 
-#### How to display a form in a dialog
+#### 如何在对话框中显示表单
 
-The form that’s created using this DSL can be displayed anywhere a `DisplayPanel` can be used (which is just a subclass of JPanel). This includes the Settings UI (shown in the section below) and in a dialog. Here’s an sample action that takes the object returned by `createDialogPanel()` above, and displays it in a dialog, using a `DialogWrapper`.
+使用此 DSL 创建的表单可以显示在任何可以使用`DisplayPanel`的地方(它只是 `JPanel` 的子类). 这包括设置 UI (如下节所示)和对话框. 下面是一个示例操作, 它使用上述`createDialogPanel()`返回的对象, 并使用`DialogWrapper`将其显示在对话框中.
 
 ```
 class ShowKotlinUIDSLSampleInDialogAction : AnAction() {
@@ -298,14 +298,14 @@ private class MyDialogWrapper : DialogWrapper(true) {
 }
 ```
 
-#### How to persist the data created/selected by the user, between IDE restarts (PersistentStateComponent)
+#### 如何在 IDE 重启之间持久化用户创建/选择的数据(`PersistentStateComponent`)
 
-If you want the data that you’ve created in your form to be used in the rest of the IDE, it makes sense to persist this data and make it available to other pieces of your plugin. This is where [PersistentStateComponent](https://github.com/JetBrains/intellij-community/blob/master/platform/projectModel-api/src/com/intellij/openapi/components/PersistentStateComponent.java) comes in. It allows you serialize the state of your data object to disk, and deserialize it from disk. In order to have IDEA persist your data object, simply do two things:
+如果你希望在表单中创建的数据能在IDE的其他部分中使用, 那么持久化这些数据并将其提供给插件的其他部分就很有意义. 这就是[PersistentStateComponent](https://github.com/JetBrains/intellij-community/blob/master/platform/projectModel-api/src/com/intellij/openapi/components/PersistentStateComponent.java) 的作用所在. 它允许你将数据对象的状态序列化到磁盘, 并从磁盘反序列化. 要让 IDEA 持久化数据对象, 只需做两件事:
 
-1. Make your data class extend `PersistentStateComponent`.
-2. Wrap this in a `Service` so that you can access it in any code in your plugin.
+1. 让你的数据类扩展`PersistentStateComponent`.
+2. 将其封装在一个`Service`中, 这样你就可以在插件中的任何代码中访问它.
 
-Here’s an example that shows this. The `KotlinDSLUISampleService` service contains a `State` object called `myState` that actually holds the data which is bound to the forms. State simply holds 4 properties (which can be bound to various UI components in a form): `myFlag: Boolean`, `myString: String`, `myInt: Int`, `myStringChoice: String`.
+下面是一个示例. `KotlinDSLUISampleService`服务包含一个名为`myState`的`State`对象, 它实际上保存着绑定到表单的数据. `State` 包含 4 个属性(可绑定到表单中的各种 UI 组件): `myFlag: Boolean`,`myString: String`,`myInt: Int`,`myStringChoice: String`.
 
 ```
 @Service
@@ -357,7 +357,7 @@ class KotlinDSLUISampleService : PersistentStateComponent<KotlinDSLUISampleServi
 }
 ```
 
-In the form UI example above, we just bound the data for the UI components to an object created from a simple data class. Here’s an example.
+在上面的表单 UI 示例中, 我们只是将 UI 组件的数据绑定到一个由简单数据类创建的对象上. 下面是一个示例.
 
 ```
 row {
@@ -366,7 +366,7 @@ row {
 }
 ```
 
-In order to replace that with the `PersistentStateComponent` instance, we would do something like this instead.
+为了用`PersistentStateComponent`实例来代替它, 我们可以这样做.
 
 ```
 row {
@@ -375,15 +375,15 @@ row {
 }
 ```
 
-In other words, `myDataObject` is replaced with `KotlinDSLUISampleService.instance.myState`.
+换句话说, `myDataObject`将被替换为`KotlinDSLUISampleService.instance.myState`.
 
-There is one very important thing to note in the code above. The `getState()` and `oadState(...)` methods should not be called by your code. These are hooks for IDEA to call into the service in order to manage loading and saving the state to persistence. You should provide accessors to your data properties that do not involve the use of `getState()`. And make sure that these accessors can handle `loadState(...)` providing the “initial” state (if there is anything stored in persistence). And you must make sure that by default, your initial state has to be defined (if there is no customized data to load from persistence, then your state will contain default values). IDEA uses this default state to figure out if the user changed anything in the form UI (the diffs will deviate from the default state).
+上面的代码中有一点非常重要. 你的代码不应调用`getState()`和`loadState(...)`方法. 这些是 IDEA 调用服务的钩子, 以便管理加载和保存状态到持久化中. 你应该为你的数据属性提供不涉及使用`getState()`的访问器. 并确保这些访问器可以处理提供"初始"状态的`loadState(...)`(如果在持久化中存储了任何内容). 而且必须确保默认情况下必须定义初始状态(如果没有从持久化中加载自定义数据, 则状态将包含默认值). IDEA 使用默认状态来判断用户是否更改了表单 UI 中的任何内容(差异将偏离默认状态).
 
-Also, you can specify many options to IDEA on where to store the persistent data. In this example, we have told IDEA to store any user modified data to an XML file called `kotlinDSLUISampleData.xml` in the `config/options/` folder where IDEA settings are stored. You can also specify options for `storages` that determine whether this data should be roaming disabled or not, and even if you should only store the data on specific platforms.
+此外, 你还可以向 IDEA 指定许多选项, 以确定在何处存储持久化数据. 在本例中, 我们告诉 IDEA 将用户修改的数据存储到 IDEA 设置所在的`config/options/`文件夹中名为`kotlinDSLUISampleData.xml`的 XML 文件中. 你还可以为`storages`指定选项, 以确定是否应禁用这些数据的漫游, 甚至是否只应在特定平台上存储数据.
 
-#### Example of a form UI
+#### 表单 UI 示例
 
-Here’s a form that uses Kotlin DSL and the `State` object (provided by the `PersistentStateComponent` service).
+下面是一个使用 Kotlin DSL 和`State`对象(由`PersistentStateComponent`服务提供)的表单.
 
 ```
 fun createDialogPanel(): DialogPanel {
@@ -432,16 +432,16 @@ fun createDialogPanel(): DialogPanel {
 }
 ```
 
-#### MigLayout, panel, and grow
+#### MigLayout, panel, 和 grow
 
-The panel function (in Kotlin UI DSL) actually creates a [MigLayout](https://github.com/jetbrains/intellij-community/blob/master/platform/platform-impl/src/com/intellij/ui/layout/migLayout/patched/MigLayout.kt#L43). `MigLayout` can produce flowing, grid based, absolute (with links), grouped and docking layouts.
+`panel`函数(在 Kotlin UI DSL 中)实际上创建了一个[MigLayout](https://github.com/jetbrains/intellij-community/blob/master/platform/platform-impl/src/com/intellij/ui/layout/migLayout/patched/MigLayout.kt#L43). `MigLayout`可以生成流动式, 网格式, 绝对式(带链接), 分组式和停靠式布局.
 
-* `panel` accepts `row` functions, which in turn accepts `cell` functions.
-* You can pass `grow` and `fill` attributes to `panel` and `cell` functions.
-* You can also wrap `JComponents` using the `component` function, which can also take `grow` and `fill` attributes.
-* `panel` automatically sizes the dialog, however, you can override it using your own predefined `width` and `height`.
+* `面板`接受`row`函数, 而`row`又接受`cell`函数.
+* 可以向`panel`和`cell`函数传递`grow`和`fill`属性.
+* 还可以使用`component`函数包装`JComponents`, 该函数也可以接收`grow`和`fill`属性.
+* `panel`会自动调整对话框的大小, 不过, 你可以使用自己预定义的`width`和`height`来覆盖它.
 
-Here’s an example (`myJComponent` is just a `JComponent` that is created somewhere else).
+下面是一个示例(`myJComponent`只是一个在其他地方创建的`JComponent`).
 
 ```
 override fun createCenterPanel(): JComponent {
@@ -465,33 +465,33 @@ companion object {
     const val HEIGHT = 400
 }
 ```
+> 请注意,`JComponent`对象可以在`panel`函数中调用, 而且它们接受限制其增长的`CCFLags`.
 
-> Note that `JComponent` objects become callable within the `panel` function and they accept `CCFLags` that constrain their growth.
+> 请注意, 有时直接使用[Swing 布局管理器](https://docs.oracle.com/javase/tutorial/uiswing/layout/visual.html) 而不使用此 DSL 可能会更简单.
 
-> Please note that it might be simpler at times to use the [Swing layout managers](https://docs.oracle.com/javase/tutorial/uiswing/layout/visual.html) directly w/out using this DSL.
+### 为插件创建IDE设置 UI
 
-### Create IDE Settings UI for plugin
+比方说, 我们想显示上面创建的表单(通过`createDialogPanel()`), 而且除了在`Dialog`中可用外, 我们还想在设置 UI 中显示它. 请注意, 你可以在这两个地方显示表单, 并让它在同一个`PersistentStateComponent`服务中更新数据, 这真的很方便.
 
-Let’s say that we wanted to display the form created above (by `createDialogPanel()`) and we want to display it in a Settings UI, in addition to it being available in a `Dialog`. Note that you can display the form in both places, and have it update the data in the same `PersistentStateComponent` service, which is really convenient.
+为了告诉 IDEA 你希望在 设置 UI 中显示表单, 你可以使用两个扩展点之一. 在`plugin.xml`中, 你可以声明两种类型的`configurables`(可配置的), 以便自定义 IDEA 设置 UI, 其中`configurables`是 JetBrains 平台提供的一个基类, 它允许你显示表单 UI.
 
-In order to tell IDEA that you want a form to be displayed in the Settings UI, you can use one of two extension points. In `plugin.xml` you can declare 2 types of “configurables” that allow you to customize the IDE settings UI, where a “configurable” is a base class provided by the JetBrains platform that allows you show your form UI.
+1. `projectConfigurable` -- 这些是特定项目的设置.
+2. `applicationConfigurable` -- 这些设置适用于整个IDE.
 
-1. `projectConfigurable` - these are settings that are specific to a given project.
-2. `applicationConfigurable` - these are settings that apply to the entire IDE.
+参考资料:
+* [旧 JB 该校](https://plugins.jetbrains.com/docs/intellij/settings.html).
+* [新 JB 文档](https://plugins.jetbrains.com/docs/intellij/kotlin-ui-dsl.html?from=jetbrains.org#configurables).
+* [MacOS 暗黑模式同步插件源代码](https://github.com/gilday/dark-mode-sync-plugin)
 
-References:
-* [Old JB docs](https://plugins.jetbrains.com/docs/intellij/settings.html).
-* [New JB docs](https://plugins.jetbrains.com/docs/intellij/kotlin-ui-dsl.html?from=jetbrains.org#configurables).
-* [MacOS dark mode sync plugin source](https://github.com/gilday/dark-mode-sync-plugin)
+当使用 Kotlin UI DSL 而不是实现`Configurable`接口时, 只需扩展`BoundConfigurable`. 这样做时, 你可以:
 
-When using the Kotlin UI DSL instead of implementing `Configurable` interface, simply extend `BoundConfigurable`. When doing this you can:
-
-1. Pass a `displayName` to the constructor of the `BoundConfigurable` that will actually show up in the Settings UI, (and you can type-ahead search for).
-2. Pass any number of JB platform objects in the constructor, eg:
+1. 向`BoundConfigurable`的构造函数传递一个`displayName`名称, 该名称将实际显示在设置 UI 中(你可以提前键入搜索).
+2. 在构造函数中传递任意数量的 JB 平台对象, 例如:
 ```
 class MyConfigurable(private val lafManager: LafManager) : BoundConfigurable("Display Name")
 ```
-The following is an example of this (`plugin.xml` entry, and a class that extends `BoundConfigurable`).
+
+下面是一个例子(`plugin.xml`条目和一个扩展`BoundConfigurable`的类).
 
 ```
 <!-- Add Settings Dialog that is similar to what ShowKotlinUIDSLSampleAction does. -->
@@ -500,7 +500,7 @@ The following is an example of this (`plugin.xml` entry, and a class that extend
 </extensions>
 ```
 
-The code from the previous section (Kotlin UI DSL)) is used here to generate the form itself.
+这里使用上一节(Kotlin UI DSL)中的代码来生成表单本身.
 
 ```
 package ui
@@ -534,13 +534,13 @@ class KotlinDSLUISampleConfigurable : BoundConfigurable("Kotlin UI DSL") {
 }
 ```
 
-### Complex UI creation in dialogs
+### 在对话框中创建复杂的 UI
 
-There are cases where complex UI components need to be created in a `DialogWrapper`. In this case, Kotlin UI DSL can be used or directly creating Swing components using Swing layout managers.
+在某些情况下, 需要在`DialogWrapper`中创建复杂的 UI 组件. 在这种情况下, 可以使用 Kotlin UI DSL 或直接使用 Swing 布局管理器创建 Swing 组件.
 
-> Please take a look at the [idea-plugin-example2](https://github.com/nazmulidris/idea-plugin-example2) repo that contains a plugin that has some of the functionality shown below.
+> 请查看[idea-plugin-example2](https://github.com/nazmulidris/idea-plugin-example2) 仓库, 其中的插件具有下图所示的部分功能.
 
-The following is an example of doing the latter to create a dialog that allows the user to paste text from the clipboard into an `Editor` component. The paste operation is actually implemented as an undoable command. It automatically pastes any text that is in the clipboard into the editor when the dialog is shown.
+下面是一个示例, 用于创建一个对话框, 允许用户将剪贴板中的文本粘贴到`Editor`组件中. 粘贴操作实际上是作为一个可撤销的命令来实现的. 当对话框显示时, 它会自动将剪贴板中的任何文本粘贴到编辑器中.
 
 ```
 class ComplexDialog(private val project: Project) : DialogWrapper(true) {
@@ -606,36 +606,36 @@ class ComplexDialog(private val project: Project) : DialogWrapper(true) {
 }
 ```
 
-### Adding your plugin UI in Tool windows
+### 在Tool窗口中添加插件 UI
 
-Tool windows provide in IDEA access to useful development tasks such as viewing your project structure, running and debugging your code, Git integration, and so on. Your plugin can create UI that will fit in tool windows in IDEA, instead of for example displaying it in a dialog box.
+在 IDEA 中, Tool窗口提供了对有用的开发任务的访问, 如查看项目结构, 运行和调试代码, Git 集成等. 你的插件可以创建适合 IDEA 工具窗口的 UI , 而不是在对话框中显示.
 
-> Read more about Tool windows in the [official docs](https://www.jetbrains.com/help/idea/tool-windows.html).
+> 在[官方文档](https://www.jetbrains.com/help/idea/tool-windows.html) 中阅读更多关于工具窗口的内容.
 
-For both of these types of Tool windows, the following applies:
+对于这两种类型的工具窗口, 以下内容都适用:
 
-1. Each tool window can have multiple tabs (aka “contents”).
-2. Each side of the IDE can only show 2 tool windows at any given time, as the primary or the secondary. For eg: you can move the “Project” tool window to “Left Top”, and move the “Structure” tool window to “Left Bottom”. This way you can open both of them at the same time. Note that when you move these tool windows to “Left Top” or “Left Bottom” how they actually move to the top or bottom of the side of the IDE.
+1. 每个Tool窗口可以有多个标签页(又称"content).
+2. IDE的每一侧在任何时候都只能显示 2 个工具窗口, 分别为主窗口或辅助窗口. 例如: 可以将"Project"工具窗口移到"左上角", 将"Structure"工具窗口移到"左下角". 这样就可以同时打开这两个工具窗口. 请注意, 将这些工具窗口移动到"左上"或"左下"时, 它们实际上是移动到IDE的顶部或底部.
 
-There are two main types of tool windows: 1) **Declarative**, and 2) **Programmatic**.
+工具窗口主要有两种类型 1) **声明式**, 和 2) **编程式**.
 
-> Please take a look at the [idea-plugin-example2](https://github.com/nazmulidris/idea-plugin-example2) repo that contains a plugin that has some of the functionality shown below.
+> 请查看[idea-plugin-example2](https://github.com/nazmulidris/idea-plugin-example2) 仓库, 其中包含一个插件, 具有下图所示的部分功能.
 
-#### 1. Declarative tool window
+#### 1. 声明式Tool窗口
 
-Always visible and the user can interact with it at anytime (eg: Gradle plugin tool window).
+始终可见, 用户可随时与之交互(例如: Gradle 插件工具窗口).
 
-1. This type of tool window must be registered in `plugin.xml` using the `com.intellij.toolWindow` extension point. You can specify things to register this in XML:
-   * `id`: Text displayed in the tool window button.
-   * `anchor`: Side of the screen in which the tool window is displayed (“left”, “right”, or “bottom”).
-   * `secondary`: Specify whether it is displayed in the primary or secondary group.
-   * `icon`: Icon displayed in the tool window button (`13px` x `13px`).
-   * `factoryClass`: A class implementing `ToolWindowFactory` interface, which is used to instantiate the tool window when the user clicks on the tool window button (by calling `createToolWindowContent()`). Note that if a user does not interact with the button, then a tool window doesn’t get created.
-   * For versions `2020.1` and later, also implement the `isApplicable(Project)` method if there’s no need to display a tool window for all projects. Note this condition is only evaluated the first time a project is loaded.
+1. 这类工具窗口必须使用`com.intellij.toolWindow`扩展点在`plugin.xml`中注册. 你可以在 XML 中指定一些内容来注册:
+   * `id`: 工具窗口按钮中显示的文本.
+   * `anchor`: 显示工具窗口的屏幕侧面("左","右"或"底").
+   * `secondary`: 指定显示在主组还是次组中.
+   * `icon`: 工具窗口按钮中显示的图标(`13px` x `13px`).
+   * `factoryClass`: 实现`ToolWindowFactory`接口的类, 当用户点击工具窗口按钮时(通过调用`createToolWindowContent()`), 该类用于实例化工具窗口. 请注意, 如果用户没有与按钮交互, 则不会创建工具窗口.
+   * 对于`2020.1`及更高版本, 如果不需要为所有项目显示工具窗口, 还需执行`isApplicable(Project)`方法. 请注意, 只有在首次加载项目时才会评估该条件.
 
-Here’s an example.
+下面是一个示例.
 
-The factory class.
+工厂类如下.
 
 ```
 class DeclarativeToolWindowFactory : ToolWindowFactory, DumbAware {
@@ -658,7 +658,7 @@ fun createDialogPanel(): DialogPanel = panel {
 }
 ```
 
-The `plugin.xml` snippet.
+`plugin.xml`代码段.
 
 ```
 <extensions defaultExtensionNs="com.intellij">
@@ -671,18 +671,18 @@ The `plugin.xml` snippet.
 </extensions>
 ```
 
-#### 2. Programmatic tool window
+#### 2. 编程式Tool窗口
 
-Only visible when a plugin creates it to show the results of an operation (eg: Analyze Dependencies action). This type of tool window must be added programmatically by calling `ToolWindowManager.getInstance().registerToolWindow(RegisterToolWindowTask)`.
+只有当插件创建它以显示操作结果(如: 分析依赖关系操作)时才可见. 这类工具窗口必须通过调用`ToolWindowManager.getInstance().registerToolWindow(RegisterToolWindowTask)`以编程方式添加.
 
-A couple of things to remember.
+请记住以下几点:
 
-1. You have to register the tool window (w/ the tool window manager) before using it. This is a one time operation. There’s no need to register the tool window if it’s already been registered. Registering simply shows the tool window in the IDEA UI. Unregistering removes it from the UI.
-2. You can tell the tool window to auto hide itself when there are no contents inside of it.
-3. You can create as many “contents” as you want and add it to the tool window. Each content is basically a tab. You can also specify that the content is closable.
-4. You can also attach a disposer to a content so that you can take some action when the content or tab is closed. For eg you can just unregister the tool window when there are no contents left in the tool window.
+1. 在使用工具窗口之前, 你必须注册该工具窗口(通过Tool Window Manager). 这是一次性操作. 如果Tool窗口已经注册, 则无需再注册. 注册只是在 IDEA UI 中显示工具窗口. 取消注册则会将其从 UI 中删除.
+2. 你可以告诉Tool窗口在没有内容时自动隐藏.
+3. 你可以创建任意数量的"Content"并将其添加到Tool窗口中. 每个内容基本上都是一个选项卡. 你还可以指定内容是否可以关闭.
+4. 你还可以为内容附加一个处理程序, 以便在内容或标签关闭时采取一些措施. 例如, 当Tool窗口中没有内容时, 就可以取消工具窗口的注册.
 
-Here’s an example of all of the things listed above.
+下面是一个包含上述所有内容的示例.
 
 ```
 internal class AnotherToolWindow : AnAction() {
@@ -736,7 +736,7 @@ internal class AnotherToolWindow : AnAction() {
 }
 ```
 
-The `plugin.xml` snippet, to register the action.
+用于注册操作的`plugin.xml`代码段.
 
 ```
 <actions>
@@ -747,50 +747,48 @@ The `plugin.xml` snippet, to register the action.
 </actions>
 ```
 
-#### Indices and dumb aware
+#### 索引 和 DumbAware
 
-Displaying the contents of many tool windows requires access to the indices. Because of that, tool windows are normally disabled while building indices, unless true is passed as the value of `canWorkInDumbMode` to the `registerToolWindow()` function (for programmatic tool windows). You can also implement `DumbAware` in your factory class to let IDEA know that your tool window can be shown while indices are being built.
+显示许多工具窗口的内容需要访问索引. 因此, 除非将`canWorkInDumbMode`的值作为 `true` 传递给`registerToolWindow()`函数(用于编程工具窗口), 否则在建立索引时, 工具窗口通常是禁用的. 你还可以在工厂类中实现`DumbAware`, 让 IDEA 知道在构建索引时可以显示工具窗口.
 
-#### Creating a content for any kind of tool window
+#### 为任何类型的工具窗口创建内容
 
-Regardless of the type of tool window (declarative or programmatic) here is the sequence of operations that you have to perform in order to add a content:
+无论工具窗口的类型如何(声明式或编程式), 以下是添加内容时必须执行的操作顺序:
 
-1. Create the component / UI that you need for the content, ie, a Swing component (eg: `createDialogPanel()` above).
-2. Add the component / UI to the content to the `ToolWindowManager` (programmatic) or the tool window `ContentManager` (declarative).
+1. 创建内容所需的组件/ UI , 即 Swing 组件(如上文的`createDialogPanel()`).
+2. 将组件/ UI 添加到内容的`ToolWindowManager`(编程式)或工具窗口的`ContentManager`(声明式)中.
 
-#### Content closeability
+#### 内容可关闭性
 
-A plugin can control whether the user is allowed to close tabs either 1) **globally** or 2) **on a per content basis**.
+插件可控制是否允许用户关闭标签:1)**全局的**或 2)**基于内容基础**.
 
-1. **Globally**: This is done by passing the `canCloseContents` parameter to the `registerToolWindow()` function, or by specifying `canCloseContents="true"` in `plugin.xml`. The default value is `false`. Note that calling `setClosable(true)` on `ContentManager` content will be ignored unless `canCloseContents` is explicitly set.
-2. **Per content basis**: This is done by calling `setCloseable(Boolean)` on each content object itself.
+1. **全局的**: 通过向`registerToolWindow()`函数传递`canCloseContents`参数, 或在`plugin.xml`中指定`canCloseContents=`true``来实现. 默认值为`false'. 请注意, 除非明确设置了`canCloseContents`, 否则在`ContentManager`内容上调用`setClosable(true)`将被忽略.
+2. **基于内容基础**: 这是通过在每个内容对象上调用`setCloseable(Boolean)`来实现的.
 
-If closing tabs is enabled in general, a plugin can disable closing of specific tabs by calling `Content.setCloseable(false)`.
+如果在一般情况下启用了关闭标签, 插件可以通过调用`Content.setCloseable(false)`来禁用特定标签的关闭.
 
-### Add Line marker provider in your plugin
+### 在插件中添加行标记提供器
 
-Line marker providers allow your plugin to display an icon in the gutter of an editor window. You can also provide actions that can be run when the user interacts with the gutter icon, along with a tooltip that can be generated when the user hovers over the gutter icon.
+行标记提供器允许插件在编辑器窗口的沟槽中显示图标. 你还可以提供在用户与沟槽图标交互时运行的操作, 以及在用户将鼠标悬停在沟槽图标上时生成的工具提示.
 
-> Please take a look at the [idea-plugin-example2](https://github.com/nazmulidris/idea-plugin-example2) repo that contains a plugin that has some of the functionality shown below.
+> 请查看[idea-plugin-example2](https://github.com/nazmulidris/idea-plugin-example2) 仓库, 其中的插件具有下图所示的部分功能.
 
-In order to use line marker providers, you have to do two things:
+要使用行标记提供器, 你必须做两件事:
+1. 创建一个实现`LineMarkerProvider`的类, 该类将为你希望 IDEA 在 IDE 中突出显示的正确`PsiElement`生成`LineMarkerInfo`.
+2. 在`plugin.xml`中注册此`provider`并将其关联到特定语言中运行.
 
-1. Create a class that implements `LineMarkerProvider` that generates the `LineMarkerInfo` for the correct `PsiElement` that you want IDEA to highlight in the IDE.
-2. Register this `provider` in `plugin.xml` and associate it to be run for a specific language.
+加载插件后, 当编辑器加载该语言类型的文件时, IDEA 将运行行标记提供器. 出于性能考虑, 这将分两次进行.
 
-When your plugin is loaded, IDEA will then run your line marker provider when a file of that language type is loaded in the editor. This happens in two passes for performance reasons.
+1. IDEA 将首先使用当前可见的`PsiElements`调用你的提供器实现.
+2. 然后, IDEA 将使用当前隐藏的`PsiElements`调用你的提供器实现.
 
-1. IDEA will first call your provider implementation with the `PsiElements` that are currently visible.
-2. IDEA will then call your provider implementation with the `PsiElements` that are currently hidden.
+非常重要的一点是, 你只能为希望 IDEA 高亮显示的更具体的`PsiElement`返回一个`LineMarkerInfo`, 因为如果范围太广, 就会出现沟槽图标闪烁的情况! 下面是对原因的详细解释([LineMarkerProvider.java](https://github.com/JetBrains/intellij-community/blob/master/platform/lang-api/src/com/intellij/codeInsight/daemon/LineMarkerProvider.java) 源文件中的评论).
 
-It is very important that you only return a `LineMarkerInfo` for the more specific `PsiElement` that you wish IDEA to highlight, as if you scope it too broadly, there will be scenarios where your gutter icon will blink! Here’s a detailed explanation as to why (a comment from the source for [LineMarkerProvider.java](https://github.com/JetBrains/intellij-community/blob/master/platform/lang-api/src/com/intellij/codeInsight/daemon/LineMarkerProvider.java) source file).
-
-> Please create line marker info for leaf elements only - i.e. the smallest possible elements. For example, instead of returning method marker for `PsiMethod`, create the marker for the `PsiIdentifier` which is a name of this method.
-> Highlighting (specifically, `LineMarkersPass`) queries all `LineMarkerProviders` in two passes (for performance reasons):
-> 1. first pass for all elements in visible area
-> 2. second pass for all the rest elements If provider returned nothing for both areas, its line markers are cleared.
-> So imagine a `LineMarkerProvider` which (incorrectly) written like this:
-
+> 请仅为叶元素创建行标记信息, 即尽可能小的元素. 例如, 与其为`PsiMethod`返回方法标记, 不如为该方法的名称`PsiIdentifier`创建标记.
+> 高亮显示(特别是`LineMarkersPass`)分两次查询所有`LineMarkerProviders`(出于性能考虑):
+> 1. 第一次查询可见区域内的所有元素
+> 2. 第二次查询其余所有元素 如果提供器在两个区域都没有返回任何信息, 则会清除其行标记.
+     > 因此, 试想一下,`LineMarkerProvider`(不正确地)是这样编写的:
 ```
 class MyBadLineMarkerProvider implements LineMarkerProvider {
   public LineMarkerInfo getLineMarkerInfo(PsiElement element) {
@@ -805,10 +803,10 @@ class MyBadLineMarkerProvider implements LineMarkerProvider {
 }
 ```
 
-> Note that it create `LineMarkerInfo` for the whole method body. Following will happen when this method is half-visible (e.g. its name is visible but a part of its body isn’t):
-> 1. the first pass would remove line marker info because the whole `PsiMethod` isn’t visible
-> 2. the second pass would try to add line marker info back because `LineMarkerProvider` was called for the `PsiMethod` at last
-> As a result, line marker icon will blink annoyingly. Instead, write this:
+> 请注意, 它为整个方法体创建了`LineMarkerInfo`. 当该方法处于半可见状态时(例如, 其名称可见, 但其主体的一部分不可见), 会发生以下情况:
+> 1. 第一次会删除行标记信息, 因为整个`PsiMethod`不可见;
+     > 2.第二遍会尝试添加行标记信息, 因为最后调用了`PsiMethod`的`LineMarkerProvider`.
+     > 因此, 行标记图标会烦人地闪烁. 不如这样写:
 
 ```
 class MyGoodLineMarkerProvider implements LineMarkerProvider {
@@ -826,16 +824,15 @@ class MyGoodLineMarkerProvider implements LineMarkerProvider {
 }
 ```
 
+### Markdown 语言提供器示例
 
-### Example of a provider for Markdown language
+比方说, 对于在IDE中打开的 Markdown 文件, 我们希望高亮显示其中包含链接的任何行. 我们希望在沟槽区域显示一个图标, 用户可以看到并点击该图标进行一些操作. 例如, 他们可以打开链接.
 
-Let’s say that for Markdown files that are open in the IDE, we want to highlight any lines that have links in them. We want an icon to show up in the gutter area that the user can see and click on to take some actions. For example, they can open the link.
+### 1. 声明依赖
 
-### 1. Declare dependencies
+此外, 由于我们依赖于`Markdown`插件, 因此必须在插件中添加以下依赖项.
 
-Also, because we are relying on the `Markdown` plugin, in our plugin, we have to add the following dependencies.
-
-To `plugin.xml`, we must add.
+在`plugin.xml`中, 我们必须添加:
 
 ```
 <!-- please see http://www.jetbrains.org/intellij/sdk/docs/basics/getting_started/build_number_ranges.html for description -->
@@ -850,7 +847,7 @@ To `plugin.xml`, we must add.
 <depends>org.intellij.plugins.markdown</depends>
 ```
 
-To `build.gradle.kts` we must add:
+我们必须添加`build.gradle.kts`文件里:
 
 ```
 // See https://github.com/JetBrains/gradle-intellij-plugin/
@@ -869,9 +866,9 @@ intellij {
 }
 ```
 
-### 2. Register the provider in XML
+### 2. 在 XML 中注册提供器
 
-The first thing we need to do is register our line marker provider in `plugin.xml`.
+我们需要做的第一件事是在`plugin.xml`中注册行标记提供器.
 
 ```
 <extensions defaultExtensionNs="com.intellij">
@@ -879,17 +876,17 @@ The first thing we need to do is register our line marker provider in `plugin.xm
 </extensions>
 ```
 
-### 3. Provide an implementation of LineMarkerProvider
+### 3. 提供 `LineMarkerProvider` 的实现
 
-Then we have to provide an implementation of `LineMarkerProvider` that returns a `LineMarkerInfo` for the most fine grained `PsiElement` that it successfully matches against. In other words, we can either match against the `LINK_DESTINATION` or the `LINK_TEXT` elements.
+然后, 我们必须提供一个`LineMarkerProvider`的实现, 它能为成功匹配的最细粒度的`PsiElement`返回一个`LineMarkerInfo`. 换句话说, 我们既可以匹配`LINK_DESTINATION`元素, 也可以匹配`LINK_TEXT`元素.
 
-Here’s an example. For the string containing an inline `Markdown` link:
+下面是一个例子. 对于包含内联`Markdown`链接的字符串:
 
 ```
 [`LineMarkerProvider.java`](https://github.com/JetBrains/intellij-community/blob/master/platform/lang-api/src/com/intellij/codeInsight/daemon/LineMarkerProvider.java)
 ```
 
-This is what its PSI looks like:
+其 PSI 看起来是这样的:
 
 ```
 ASTWrapperPsiElement(Markdown:Markdown:INLINE_LINK)(1644,1810)
@@ -906,7 +903,7 @@ ASTWrapperPsiElement(Markdown:Markdown:INLINE_LINK)(1644,1810)
         PsiElement(Markdown:Markdown:))(')')(1809,1810)
 ```
 
-Here’s what the implementation of the line marker provider that matches `INLINE_LINK` might look like.
+下面是与`INLINE_LINK`匹配的行标记提供器的实现.
 
 ```
 package ui
@@ -938,8 +935,7 @@ internal class MarkdownLineMarkerProvider : LineMarkerProvider {
   }
 }
 ```
-
-You can add the `ic_linemarkerprovider.svg` icon here (create this file in the `$PROJECT_DIR/src/main/resources/icons/` folder.
+你可以在此处添加`ic_linemarkerprovider.svg`图标(在`$PROJECT_DIR/src/main/resources/icons/`文件夹中创建此文件).
 
 ```
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" height="13px" width="13px">
@@ -949,15 +945,15 @@ You can add the `ic_linemarkerprovider.svg` icon here (create this file in the `
 </svg>
 ```
 
-### 4. Provide a more complex implementation of LineMarkerProvider
+### 4. 提供更复杂的 `LineMarkerProvider` 实现
 
-The example we have so far, simply shows a gutter icon beside the lines in the editor window, that match our matching criteria. Let’s say that we want to show some relevant actions that can be performed on the `PsiElement(s)` that matched and are associated with the gutter icon. In this case we have to delve a little deeper into the `LineMarkerInfo` class.
+目前的示例只是在编辑器窗口中符合匹配条件的行旁显示一个沟槽图标. 比方说, 我们想显示一些相关操作, 这些操作可以在与沟槽图标匹配并关联的`PsiElement(s)`上执行. 在这种情况下, 我们必须深入研究一下`LineMarkerInfo`类.
 
-If you look at [LineMarkerInfo.java](https://github.com/jetbrains/intellij-community/blob/master/platform/lang-api/src/com/intellij/codeInsight/daemon/LineMarkerInfo.java#L137), you will find a `createGutterRenderer()` method. We can actually override this method and create our own `GutterIconRenderer` objects that have an action group inside of them which will hold all our related actions.
+如果查看[LineMarkerInfo.java](https://github.com/jetbrains/intellij-community/blob/master/platform/lang-api/src/com/intellij/codeInsight/daemon/LineMarkerInfo.java#L137), 你会发现一个`createGutterRenderer()`方法. 实际上, 我们可以重载该方法, 创建自己的`GutterIconRenderer`对象, 该对象内部有一个操作组, 其中包含所有相关操作.
 
-The following class [RunLineMarkerProvider.java](https://github.com/jetbrains/intellij-community/blob/master/platform/execution-impl/src/com/intellij/execution/lineMarker/RunLineMarkerProvider.java#L115) actually provides us some clue of how to use all of this. In IDEA, when there are targets that you can run, a gutter icon (play button) that allows you to execute the run target. This class actually provides an implementation of that functionality. Using it as inspiration, we can create the more complex version of our line marker provider.
+下面的类[RunLineMarkerProvider.java](https://github.com/jetbrains/intellij-community/blob/master/platform/execution-impl/src/com/intellij/execution/lineMarker/RunLineMarkerProvider.java#L115) 实际上为我们提供了如何使用所有这些的一些线索. 在 IDEA 中, 当有可以运行的目标时, 就会出现一个沟槽图标(播放按钮), 允许你执行运行目标. 该类实际上提供了该功能的实现. 以此为灵感, 我们可以创建更复杂版本的行标记提供器.
 
-We are going to change our initial implementation of `MarkdownLineMarkerProvider` quite drastically. First we have to add a class that is our new `LineMarkerInfo` implementation called `RunLineMarkerInfo`. This class simply allows us to return an `ActionGroup` that we will now have to provide.
+我们将对`MarkdownLineMarkerProvider`的初始实现进行大幅修改. 首先, 我们要添加一个新的`LineMarkerInfo`实现类, 名为`RunLineMarkerInfo`. 该类允许我们返回一个`ActionGroup`, 现在我们必须提供该`ActionGroup`.
 
 ```
 class RunLineMarkerInfo(element: PsiElement,
@@ -988,7 +984,7 @@ class RunLineMarkerInfo(element: PsiElement,
 }
 ```
 
-Next, is the new version of `MarkdownLineMarkerProvider` class itself.
+接下来是新版本的`MarkdownLineMarkerProvider`类本身.
 
 ```
 class MarkdownLineMarkerProvider : LineMarkerProvider {
@@ -1026,15 +1022,14 @@ class MarkdownLineMarkerProvider : LineMarkerProvider {
     group.add(OpenUrlAction(linkDestination))
     return group
   }
-
 }
 ```
 
-The `createActionGroup(...)` method actually creates an `ActionGroup` and adds a bunch of actions that will be available when the user clicks on the gutter icon for this plugin. Note that you can also add actions that are registered in your `plugin.xml` using something like this.
+`createActionGroup(...)`方法实际上是创建一个`ActionGroup`, 并添加一系列用户点击该插件的沟槽图标时可用的操作. 请注意, 你也可以使用类似下面的方法添加在`plugin.xml`中注册的操作.
 
 ```group.add(ActionManager.getInstance().getAction("ID of your plugin action"))```
 
-Finally, here’s the action to open a URL that is associated with the `INLINE_LINK` that is highlighted in the gutter.
+最后, 这里是打开与沟槽中突出显示的`INLINE_LINK`相关联的 URL 的操作.
 
 ```
 class OpenUrlAction(val linkDestination: String?) :
@@ -1044,6 +1039,5 @@ class OpenUrlAction(val linkDestination: String?) :
       BrowserUtil.open(this)
     }
   }
-
 }
 ```
