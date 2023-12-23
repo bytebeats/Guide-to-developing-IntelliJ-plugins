@@ -1,93 +1,99 @@
 ## IDEA 线程模型
 
-大多数情况下你在插件中写的代码都在主线程中执行. 一些操作, 诸如在 IDE 的"数据模型"(PSI, VFS, 项目根模型)中修改数据等, 必须在主线程中有序完成, 以避免竞争条件的发生. 这是[官方文档](https://plugins.jetbrains.com/docs/intellij/general-threading-rules.html#modality-and-invokelater)关于这些内容的详细说明.
+> 本文中, **模态** 指的是 **Modality State**; **写安全上下文**指的是**Write-Safe Context**.
 
-然而在许多情况下, 插件中的部分代码需要在后台运行, 以免长时间运行的操作导致 UI 卡顿. 插件 SDK 恰好提供了一些策略来实现代码的后台运行. 然而, 后台线程运行却不应该使用`SwingUtilities.invokeLater()`.
-1.  运行后台任务的方式之一是使用 `TransactionGuard.submitTransaction()`, 但是它却已经被废弃了.
-2.  新的方式是使用 `ApplicationManager.getApplication().invokeLater()`.
+在大多数情况下, 你在插件中编写的代码都是在主线程上执行的. 某些操作, 例如更改 IDE 的`数据模型`(PSI, VFS, 项目根模型)中的任何内容, 都必须在主线程中完成, 以防止出现竞争条件. 以下是有关这方面的[官方文档](https://plugins.jetbrains.com/docs/intellij/general-threading-rules.html#modality-and-invokelater).
 
-> ### 废弃 API
-> * 你可以找到主要废弃 API 的详细列表和在不同版本 IDEA 中变化[点击这里](https://plugins.jetbrains.com/docs/intellij/api-notable.html).
-> * 你可以在 JB 平台代码库中通过 `@ApiStatus.ScheduledForRemoval(inVersion = <version>)` 查找废弃 API, 其中 `<version>` 可以是 `2020.1` 等.
+在很多情况下, 你的一些插件代码需要在后台线程中运行, 这样当发生长时间运行操作时, 用户界面就不会被冻结. 插件 SDK 有很多策略允许你这样做. 但是, 你不应该做的一件事是使用`SwingUtilities.invokeLater()`.
+1.  运行后台任务的方法之一是使用`TransactionGuard.submitTransaction()`, 但该方法已被弃用.
+2.  新方法是使用`ApplicationManager.getApplication().invokeLater()`.
 
-然而, 我们能够准确地理解所有这些之前, 有几个重要概念我们需要理解: - “modality”和“写锁”和“写安全上下文”. 所以我们从 `submitTransaction()` 和 `invokeLater()` 开始接触每一个概念.
+> ### API 废弃
+> * 你可以在[这里](https://plugins.jetbrains.com/docs/intellij/api-notable.html) 找到 IDEA 各个版本中主要 API 废弃和更改的详细列表.
+> * 你可以通过查找`@ApiStatus.ScheduledForRemoval(inVersion = <version>)`搜索 JB 平台代码库中的废弃 API, 其中`<version>`可以是`2020.1`等.
 
-## 什么是 submitTransaction() ?
+不过, 在理解所有这一切的确切含义之前, 我们必须先理解一些重要的概念--`模态`, `写锁`和`写安全上下文`. 因此, 我们将从讨论`submitTransaction()`开始, 在使用`invokeLater()`的过程中逐一讨论这些概念.
 
-现在废弃的 `TransactionGuard.submitTransaction(Runnable)` 基本上是运行传入的 `Runnable`:
-1.  在写安全的上下文中 (这能够保证在对话框打开的时候, 没有人能够通过 `SwingUtilities#invokeLater()`或者等价的 API 来执行意外的数据模型修改).
-2.  在写线程中 (如EDT).
+## 什么是 `submitTransaction()` ?
 
-然而, `submitTransaction()` 并不能获得写锁或者开启写任务(如果需要修改 IDE 模型数据, 你必须通过代码显式地这些做).
+现已废弃的`TransactionGuard.submitTransaction(Runnable)`基本上是在以下环境中运行传递的`Runnable`:
 
-> 写任务必须在写安全上下文中做些事情吗? 不. 然而, 这两个概念很容易混淆. 而且写安全上下文很容易被认为有写锁. 其实它并没有. 这两个事情是毫无关联的 -
-> 1.  写安全上下文,
-> 2.  写锁.
-> 你可能处于写安全上下文但仍然需要获取写锁来修改 IDE 模型数据. 你也可以使用以下方式来检测执行上下文是否已经持有写锁:
-> 1.  `ApplicationManager.getApplication().isWriteAccessAllowed()`.
-> 2.  `ApplicationManager.getApplication().assertWriteAccessAllowed()`.
+1. 写安全上下文(它只是确保在显示对话框时, 没有人能使用`SwingUtilities#invokeLater()`, 或类似的 API 执行意外的 IDE 模型数据更改).
+2. 在写线程(如 EDT)中.
+
+但是, `submitTransaction()`不会获取写锁或启动写操作(如果需要修改 IDE 模型数据, 必须由代码显式完成).
+
+> 写操作与写安全上下文有什么关系? 没什么关系. 然而, 人们很容易混淆这两个概念, 认为写安全上下文有写锁; 其实不然. 这是两个不同的概念
+> 1. 安全写上下文,
+> 2. 写锁.
+> 你可以处于写安全上下文中, 但仍需要获取写锁才能更改 IDE 模型数据. 你也可以使用以下方法来检查你的执行上下文是否已持有写锁:
+> 1. `ApplicationManager.getApplication().isWriteAccessAllowed()`.
+> 2. `ApplicationManager.getApplication().assertWriteAccessAllowed()`.
 
 ## 什么是写安全上下文?
-来自 `TransactionGuard.java` [Java 文档](https://github.com/JetBrains/intellij-community/blob/master/platform/core-api/src/com/intellij/openapi/application/TransactionGuard.java#L25) 解释了什么写安全上下文:
-* 是一种机制, 能够保证在对话框打开的时候, 没人能够通过 `SwingUtilities#invokeLater()` 或者类似 API 来执行意外的 IDE 模型数据修改.
 
-写安全上下文的示例代码:
+来自`TransactionGuard.java`的[JavaDocs](https://github.com/JetBrains/intellij-community/blob/master/platform/core-api/src/com/intellij/openapi/application/TransactionGuard.java#L25) 解释了什么是写安全上下文:
 
-* `Application#invokeLater(Runnable, ModalityState)` calls with a modality state that’s either non-modal or was started inside a write-safe context. The use cases shown in the sections below are related to the non-modal scenario.
-* Direct user activity processing (key/mouse presses, actions) in non-modal state.
-* User activity processing in a modality state that was started (e.g. by showing a dialog or progress) in a write-safe context.
+* 一种机制, 可确保在显示对话框时, 没有人能够使用`SwingUtilities#invokeLater()`或类似方法执行意外的 IDE 模型数据更改.
 
-想了解更多信息关于如何处理在 EDT 上运行的代码, 请看下面:
+下面是一些写安全上下文的示例:
 
-* 运行在 EDT 上面的代码不必处于写安全上下文, 这就是为什么 `submitTransaction()` 提供了这种机制来执行给定的 `Runnable` (EDT 本身就是写安全的上下文).
-* There are some exceptions to this, for example code running in actions in a non-modal state, while running on the EDT are also running in a write-safe context (described above).
-* The JavaDocs from [`@DirtyUI` annotation source](https://github.com/JetBrains/intellij-community/blob/master/platform/util/ui/src/com/intellij/ui/DirtyUI.java#L8) also provide some more information about UI code running in the EDT and write actions.
+* 使用非模态或在写安全上下文中启动的模态调用`Application#invokeLater(Runnable, ModalityState)`. 下面各节所示的用例与非模式情景有关.
+* 非模态下的直接用户活动处理(按键/鼠标点击, 操作).
+* 在模态下的用户活动处理, 该状态是在写安全上下文中启动的(例如, 通过显示对话框或进度).
+
+以下是有关如何处理 EDT 上运行的代码的更多信息:
+
+* 在 EDT 中运行的代码不一定是在写安全上下文中, 这就是为什么`submitTransaction()`提供了在写安全上下文(EDT 本身)中执行给定的`Runnable`的机制.
+* 这也有一些例外情况, 例如, 在 EDT 上运行时, 在非模态下的操作中运行的代码也是在安全写上下文中运行的(如上所述).
+* 来自[`@DirtyUI`注解](https://github.com/JetBrains/intellij-community/blob/master/platform/util/ui/src/com/intellij/ui/DirtyUI.java#L8) 的 JavaDocs 还提供了一些关于在 EDT 和写操作中运行的 UI 代码的更多信息.
+
 ```
 /**
 * <p>
-* This annotation specifies code which runs on Swing Event Dispatch Thread and accesses IDE model (PSI, etc.)
-* at the same time.
+* 此注解指定在 Swing 事件派发线程上运行并访问 IDE 模型(PSI 等)的代码. 
+* 同时运行的代码. 
 * <p>
-* Accessing IDE model from EDT is prohibited by default, but many existing components are designed without
-* such limitations. Such code can be marked with this annotation which will cause a dedicated instrumenter
-* to modify bytecode to acquire Write Intent lock before the execution and release after the execution.
+* 默认情况下, 从 EDT 访问 IDE 模型是被禁止的, 但许多现有组件在设计时都没有这种限制. 
+* 此类限制. 此类代码可使用此注解进行标记, 这将导致专用的工具程序
+* 修改字节码, 以便在执行前获取写入意图锁, 并在执行后释放. 
 * <p>
-* Marked methods will be modified to acquire/release IW lock. Marked classes will have a predefined set of their methods
-* modified in the same way. This list of methods can be found at {@link com.intellij.ide.instrument.LockWrappingClassVisitor#METHODS_TO_WRAP}
+* 标记的方法将被修改, 以获取/释放 IW 锁. 标记的类将有一组预定义的方法
+* 以同样的方式修改. 该方法列表可在 {@link com.intellij.ide.instrument.LockWrappingClassVisitor#METHODS_TO_WRAP} 中找到. 
 *
 * @see com.intellij.ide.instrument.WriteIntentLockInstrumenter
 * @see com.intellij.openapi.application.Application
 */
 ```
 
-Here are some best practices for code that runs in the EDT:
+以下是在 EDT 中运行代码的一些最佳实践:
 
-1.  Any writes to the IDE data model must happen on the write thread, which is the EDT.
-2.  Even though you can safely read IDE model data from the EDT (without acquiring a read lock), you will still need to acquire a write lock in order to modify IDE model data.
-3.  Code running in the EDT must explicitly acquire write locks explicitly (by wrapping that code in a write action) in order to change any IDE model data. This can be done by wrapping the code in a write action with `ApplicationManager.getApplication().runWriteAction()` or, `WriteAction run()/compute()`.
-4.  If your code is running in a dialog, and you don’t need to perform any write operations to IDE data models, then you can simply use `SwingUtilities.invokeLater()` or analogs. You only need a write-safe context to run in the right modality if you plan to change the IDE data models.
-5.  The IntelliJ Platform SDK docs have more details on IDEA threading [here](https://plugins.jetbrains.com/docs/intellij/general-threading-rules.html?from=jetbrains.org).
+1.  对 IDE 数据模型的任何写入都必须在写入线程(即 EDT)上进行.
+2.  即使你可以安全地从 EDT 读取 IDE 模型数据(无需获取读锁), 你仍需要获取写锁才能修改 IDE 模型数据.
+3.  在 EDT 中运行的代码必须显式地获取写锁(将代码封装在写操作中), 才能更改任何 IDE 模型数据. 这可以通过使用`ApplicationManager.getApplication().runWriteAction()`或`WriteAction run()/compute()`在写操作中封装代码来实现.
+4.  如果代码在对话框中运行, 并且不需要对 IDE 数据模型执行任何写入操作, 则可以简单地使用`SwingUtilities.invokeLater()`或类似功能. 只有当你计划更改 IDE 数据模型时, 才需要在正确的模式下运行写安全上下文.
+5.  IntelliJ Platform SDK 文档中有更多关于 IDEA 线程的详细信息, 请查看[这里](https://plugins.jetbrains.com/docs/intellij/general-threading-rules.html?from=jetbrains.org).
 
-## What is the replacement for submitTransaction()?
+## 取代 `submitTransaction()` 的方法是什么?
 
-The replacement for using `TransactionGuard.submitTransaction(Runnable, ...)` is `ApplicationManager.getApplication().invokeLater(Runnable, ...)`. `invokeLater()` makes sure that your code is running in a write-safe context, but you still need to acquire a write lock if you want to modify any IDE model data.
+替代`TransactionGuard.submitTransaction(Runnable, ...)`的方法是`ApplicationManager.getApplication().invokeLater(Runnable, ...)`. `invokeLater()`确保代码在写安全上下文中运行, 但如果要修改任何 IDE 模型数据, 仍需获取写锁.
 
-## invokeLater() and ModalityState
+## `invokeLater()` 和 `ModalityState`
 
-`invokeLater()` can take a `ModalityState` parameter in addition to a `Runnable`. Basically you can choose when to actually execute your `Runnable`, either ASAP, during the period when a dialog box is displayed, or when all dialog boxes have been closed.
+`invokeLater()`除了可以接受一个`Runnable`参数外, 还可以接受一个`ModalityState`参数. 基本上, 你可以选择何时实际执行你的`Runnable`, 可以是尽快, 也可以是在显示对话框期间, 或者是在关闭所有对话框后.
 
-> To see source code examples of how `ModailtyState` can be used in a dialog box used in a plugin (that is written using the Kotlin UI DSL) check out this sample [ShowKotlinUIDSLSampleInDialogAction.kt](https://github.com/nazmulidris/idea-plugin-example/blob/main/src/main/kotlin/ui/ShowKotlinUIDSLSampleInDialogAction.kt).
-> To learn more about what the official docs say about this, check out the [JavaDocs](https://github.com/JetBrains/intellij-community/blob/master/platform/core-api/src/com/intellij/openapi/application/ModalityState.java#L23) in `ModalityState.java`. The following is an in-depth explanation of how this all works.
+> 要查看源代码示例, 了解如何在插件(使用 Kotlin UI DSL 编写)中的对话框中使用`ModailtyState`, 请查看此示例[ShowKotlinUIDSLSampleInDialogAction.kt](https://github.com/nazmulidris/idea-plugin-example/blob/main/src/main/kotlin/ui/ShowKotlinUIDSLSampleInDialogAction.kt).
+> 要进一步了解官方文档对此的说明, 请查看`ModalityState.java`中的[JavaDocs](https://github.com/JetBrains/intellij-community/blob/master/platform/core-api/src/com/intellij/openapi/application/ModalityState.java#L23). 下面将深入解释这一切是如何工作的.
 
-There’s a user flow that is described in the docs that goes something like this:
 
-1.  Some action runs in a plugin, which enqueues `Runnable A` on the EDT for later invocation, using `SwingUtilities.invokeLater()`.
-2.  Then, the action shows a dialog box, and waits for user input.
-3.  While the user is thinking about what choice to make on the dialog box, that `Runnable A` has already started execution, and it does something drastic to the IDE data models (like delete a project or something).
-4.  The user finally makes up their mind and makes a choice. At this point the code that is running in the action is not aware of the changes that have been made by `Runnable A`. And this can cause some big problems in the action.
-5.  `ModalityState` allows you to exert control over when the `Runnable A` is actually executed at a later time.
+文档中描述的用户流程大致如下:
+1.  在插件中运行某些操作, 然后使用`SwingUtilities.invokeLater()`将`Runnable A`在 EDT 上排队, 以便稍后调用.
+2.  然后, 该操作会显示一个对话框, 等待用户输入.
+3.  当用户正在考虑如何在对话框中做出选择时, `Runnable A`已经开始执行, 并对 IDE 数据模型做了一些大动作(如删除项目之类).
+4.  用户最终下定决心并做出选择. 此时, 在操作中运行的代码并不知道`Runnable A`所做的更改. 这可能会给操作带来一些大问题.
+5.  `ModalityState`允许你控制`Runnable A`在稍后时间的实际执行时间.
 
-Here’s some more information about this scenario. If you set a breakpoint at the start of the action’s execution, before it enqueued Runnable A, you might see the following if you look at `ApplicationManager.getApplication().myTransactionGuard.myWriteSafeModalities` in the debugger. This is BEFORE the dialog box is shown.
+下面是关于这种情况的更多信息. 如果在动作开始执行时, 即在启动 `Runnable A` 之前设置一个断点, 那么在调试器中查看`ApplicationManager.getApplication().myTransactionGuard.myWriteSafeModalities`时, 你可能会看到以下内容. 这是在对话框显示**之前**的.
 
 ```
  myWriteSafeModalities = {ConcurrentWeakHashMap@39160}  size = 3
@@ -96,7 +102,7 @@ Here’s some more information about this scenario. If you set a breakpoint at t
  {ModalityStateEx@40112} "ModalityState:{}" -> {Boolean@39735} true
 ```
 
-**AFTER** the dialog box is shown you might see something like the following for the same `myWriteSafeModalities` object in the debugger (if you set a breakpoint after the dialog box has returned the user selected value).
+在对话框显示**之后**, 你可能会在调试器中看到类似下面的内容(如果你在对话框返回用户选择的值之后设置了断点).
 
 ```
  myWriteSafeModalities = {ConcurrentWeakHashMap@39160}  size = 4
@@ -106,24 +112,24 @@ Here’s some more information about this scenario. If you set a breakpoint at t
  {ModalityStateEx@40112} "ModalityState:{}" -> {Boolean@39735} true
 ```
 
-Notice that a new `ModalityState` has been added, which basically points to the dialog box being displayed.
-So this is how the modality state parameter to `invokeLater()` works.
+注意已添加了一个新的`ModalityState`, 它基本上指向正在显示的对话框.
+因此, `invokeLater()`的模态参数是这样工作的.
 
-1.  If you don’t want the `Runnable` that you pass to it to be executed immediately, then you can specify `ModalityState.NON_MODAL`, and this will run it after the dialog box has closed (there are no more modal dialogs in the stack of active modal dialogs).
-2.  Instead if you wanted to run it immediately, then you can run it using `ModalityState.any()`.
-3.  However, if you pass the `ModalityState` of the dialog box as a parameter, then this `Runnable` will only execute while that dialog box is being displayed.
-4.  Now, even when the dialog box is displayed, if you enqueued another `Runnable` to run with `ModalityState.NON_MODAL`, then it will be run after the dialog box is closed.
+1.  如果不想立即执行传给它的`Runnable`, 则可以指定`ModalityState.NON_MODAL`, 这样它就会在对话框关闭后运行(活跃的模式对话框堆栈中不再有模式对话框).
+2.  如果你想立即运行, 可以使用`ModalityState.any()`.
+3.  但是, 如果你将对话框的`ModalityState`作为参数传递, 那么该`Runnable`只会在显示该对话框时执行.
+4.  现在, 即使在对话框显示时, 如果你使用`ModalityState.NON_MODAL`指定了另一个`Runnable`来运行, 那么它将在对话框关闭后运行.
 
-## How to use invokeLater to perform asynchronous and synchronous tasks
+## 如何使用 `invokeLater` 执行异步和同步任务
 
-The following sub sections demonstrate how to get away from using `submitTransaction()` and switch to using `invokeLater()` for the given use cases, an even remove the use of them altogether when possible.
+以下子区域将演示如何在给定用例中放弃使用`submitTransaction()`, 转而使用`invokeLater()`, 甚至在可能的情况下完全取消使用它们.
 
-### Synchronous execution of Runnable (from an already write-safe context using submitTransaction()/invokeLater())
+### `Runnable` 的同步执行(从已经写安全上下文中使用 `submitTransaction()/invokeLater()`)
 
-In the scenario where your code is already running in a write-safe context, there is no need to use `submitTransaction()` or `invokeLater()` to queue your `Runnable`, and you can execute its contents directly.
-> From `TransactionGuard.java#submitTransaction()` JavaDoc on [Line 76](https://github.com/JetBrains/intellij-community/blob/master/platform/core-api/src/com/intellij/openapi/application/TransactionGuard.java#L76): “In a definitely write-safe context, just replace this call with {@code transaction} contents. Otherwise, replace with {@link Application#invokeLater} and take care that the default or explicitly passed modality state is write-safe.”
+在代码已经在写安全上下文中运行的情况下, 无需使用`submitTransaction()`或`invokeLater()`来入队你的`Runnable`, 你可以直接执行其内容.
+> 摘自`TransactionGuard.java#submitTransaction()`JavaDoc[第 76 行](https://github.com/JetBrains/intellij-community/blob/master/platform/core-api/src/com/intellij/openapi/application/TransactionGuard.java#L76): `在绝对写安全的上下文中, 只需用 `{@code transaction}` 内容替换此调用. 否则, 请用 `{@link Application#invokeLater}` 替换, 并注意默认或显式传递的模态是写安全的.`
 
-Let’s say that you have a button which has a listener, in a dialog, or tool window. When the button is clicked, it should execute a `Runnable` in a write-safe context. Here’s the code that registers the action listener to the button.
+假设在对话框或工具窗口中有一个按钮, 该按钮有一个监听器. 当按钮被点击时, 它应该在写安全上下文中执行一个`Runnable`. 下面是为按钮注册动作监听器的代码.
 
 ```
 init {
@@ -133,7 +139,7 @@ init {
 }
 ```
 
-Here’s the code that queues the `Runnable`. If you run `TransactionGuard.getInstance().isWriteSafeModality(ModalityState.NON_MODAL)` inside the following function it returns true.
+下面是对`Runnable`进行入队的代码. 如果在以下函数中运行`TransactionGuard.getInstance().isWriteSafeModality(ModalityState.NON_MODAL)`会返回 true.
 
 ```
 private fun processButtonClick() {
@@ -143,55 +149,55 @@ private fun processButtonClick() {
 }
 ```
 
-However this code is running in the EDT, and since `processButtonClick()` uses a write action to perform its job, so there’s really no need to wrap it in a `submitTransaction()` or `invokeLater()` call. Here we have code that is:
+然而, 这段代码是在 EDT 中运行的, 而且由于`processButtonClick()`使用写操作来执行其工作, 因此确实没有必要将其封装在`submitTransaction()`或`invokeLater()`调用中. 我们这里的代码是:
 
-1.  Running the EDT,
-2.  Already running in a write-safe context,
-3.  And, processButtonClick() itself wraps its work in a write action.
+1.  运行 EDT,
+2.  已在写安全上下文中运行,
+3.  而且, `processButtonClick()` 本身将其工作封装在一个写操作中.
 
-In this case, it is possible to safely remove the `Runnable` and just directly call its contents. So, we can replace it with something like this.
+在这种情况下, 可以安全地移除`Runnable`并直接调用其内容. 因此, 我们可以用类似下面这样的代码来替换它.
 
 ```
 ApplicationManager.getApplication().assertIsDispatchThread()
 // Do something to the IDE data model in a write action.
 ```
 
-### Asynchronous execution of Runnable (from a write-unsafe / write-safe context using submitTransaction())
+### `Runnable` 的异步执行(在(不)写安全上下文中使用 `submitTransaction()`)
 
-The simplest replacement for the `Runnable` and `Disposable` that are typically passed to `submitTransaction()`, is simply to replace the call:
-
-```
-TransactionGuard.submitTransaction(Disposable, Runnable)
-```
-
-With
+对于替换通常传递给`submitTransaction()`的`Runnable`和`Disposable`, 最简单的方法是用:
 
 ```
 ApplicationManager.ApplicationManager.getApplication().invokeLater(
   Runnable, ComponentManager.getDisposed())
 ```
 
-1.  Note that IDE data model objects like project, etc. all expose a `Condition` object from a call to `getDisposed()`.
-2.  If you have to create a `Condition` yourself, then you can just wrap your `Disposable` in a call to `Disposer.isDisposed(Disposable)`.
+调用:
 
-Let’s take a look at a simple example of replacing old code that uses `submitTransaction()`.
+```
+TransactionGuard.submitTransaction(Disposable, Runnable)
+```
 
-1.  OId code that uses `submitTransaction`. <br>```TransactionGuard.submitTransaction(myProject, ()->{ /* Runnable */ }```
-2.  New code that uses `invokeLater()`. <br>```ApplicationManager.getApplication().invokeLater(()->{ /* Runnable */ }, myProject.getDisposed());```
+1. 请注意, IDE 数据模型对象(如`Project`等)都会通过调用`getDisposed()`暴露出一个`Condition`对象.
+2. 如果你必须自己创建一个`Condition`对象, 那么你只需在调用`Disposer.isDisposed(Disposable)`时封装你的`Disposable`对象即可.
 
-Here’s a slightly more complex example where a `Condition` object must be created.
+让我们来看一个替换使用`submitTransaction()`的旧代码的简单示例.
 
-1.  OId code that uses `submitTransaction`. <br>```TransactionGuard.submitTransaction(myComponent.getModel(), ()->{ /* Runnable */ })```
-2.  New code that uses `invokeLater()`. <br>```ApplicationManager.getApplication().invokeLater(()->{ /* Runnable */ }, ignore -> Disposer.isDisposed(myComponent.getModel()));```
-3.  You can also just check for the condition `Disposer.isDisposed(myComponent.getModel())` at the start of the `Runnable`. And not even pass the `Condition` in `invokeLater()` if you like.
+1.  使用`submitTransaction`的旧代码. <br>```TransactionGuard.submitTransaction(myProject, ()->{ /* Runnable */ }```
+2.  新代码使用`invokeLater()`. <br>```ApplicationManager.getApplication().invokeLater(()->{ /* Runnable */ }, myProject.getDisposed());```
 
-### Side effect - invokeLater() vs submitTransaction() and impacts on test code
+这是一个稍微复杂点的例子, 其中必须创建一个`Condition`对象.
 
-When moving from `submitTransaction()` to `invokeLater()` some tests might need to be updated, due to one of the major differences between how these two functions actually work.
+1.  旧代码使用`submitTransaction`. <br>```TransactionGuard.submitTransaction(myComponent.getModel(), ()->{ /* Runnable */ })```
+2.  新代码使用`invokeLater()`. <br>```ApplicationManager.getApplication().invokeLater(()->{ /* Runnable */ }, ignore -> Disposer.isDisposed(myComponent.getModel()));```
+3.  你也可以在`Runnable`开启的地方检查条件`Disposer.isDisposed(myComponent.getModel())`. 甚至, 如果你喜欢的话, 可以在`invokeLater()`中不传递`Condition`.
 
-In some cases, one of the consequences of using `invokeLater()` instead of `submitTransaction()` is that in tests, you might have to call `PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()` to ensure that the `Runnable`s that are queued for execution on the EDT are actually executed (since the tests run in a headless environment). You can also call `UIUtil.dispatchAllInvocationEvents()` instead of `PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()`. When using `submitTransaction()` in the past, this was not necessary.
+### `invokeLater()` vs `submitTransaction()` 及其对测试代码的影响
 
-Here’s old code, and test code.
+`submitTransaction()`迁移到`invokeLater()`时, 由于这两个函数实际工作方式的一个主要区别, 可能需要更新一些测试.
+
+在某些情况下, 使用`invokeLater()`而非`submitTransaction()`的后果之一是, 在测试中, 你可能必须调用`PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()`以确保在 EDT 上排队等待执行的`Runnable` 被实际执行(因为测试是在无头环境中运行的). 你还可以调用`UIUtil.dispatchAllInvocationEvents()`, 而不是`PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()`. 过去使用`submitTransaction()`时, 无需这样做.
+
+下面是旧代码和测试代码:
 
 ```
 @JvmStatic
@@ -209,7 +215,7 @@ fun testMyFunction() {
 }
 ```
 
-Here’s the new code, and test code.
+下面是新代码和测试代码:
 
 ```
 @JvmStatic
