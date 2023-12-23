@@ -1,32 +1,32 @@
 ## VFS, Document, PSI
 
-The virtual file system (VFS) is an abstraction that is available inside the IntelliJ Platform that allows access to files on your computer (on your local file system, or even in JAR files), or from a source code repository, or over the network. There are multiple ways of accessing the contents of files in the IDE:
+VFS(Virtual File System, 虚拟文件系统)是IntelliJ平台中的一个抽象概念, 它允许访问计算机上的文件(本地文件系统上的文件, 甚至是JAR文件中的文件), 仓库中的文件或网络上的文件. 有多种方法可以访问集成开发环境中的文件内容:
 
-1. VFS allows access to files at the lowest level (closest the actual file system and not an abstraction like PSI).
-2. Document provides an object model to access file contents as plain text (so its somewhere between VFS and PSI).
-3. PSI (Program Structure Interface) allows access to the contents of a file in a hierarchical object model which takes the syntax and semantics of specific languages into account (kind of like how DOM represents HTML and CSS content in a web browser). You can learn more about PSI in in this section.
+1. VFS 允许访问最底层的文件(最接近实际文件系统, 而不是像 PSI 这样的抽象文件系统).
+2. Document提供了一个对象模型, 可以以纯文本的形式访问文件内容(因此它介于 VFS 和 PSI 之间).
+3. PSI(程序结构接口)允许以分层对象模型访问文件内容, 该模型考虑了特定语言的语法和语义(有点像 DOM 在网页浏览器中表示 HTML 和 CSS 内容的方式). 有关 PSI 的更多信息, 请参阅本节.
 
 ### VFS
 
-The VFS is what the IntelliJ Platform uses to work with files. It provides:
+VFS 是 IntelliJ 平台用于处理文件的工具. 它提供:
 
-1. A universal API for working with files regardless of where they are located (on disk, in a JAR file, on a HTTP server, in a VCS, etc).
-2. Information for tracking file modifications and providing both new and old versions of a file when a change is detected in a file.
-3. Ability to associate additional persistent data with a file in the VFS.
+1. 用于处理文件的通用 API, 无论文件位于何处(磁盘, JAR 文件, HTTP 服务器, VCS 等).
+2. 用于跟踪文件修改的信息, 并在检测到文件发生变化时提供文件的新旧版本.
+3. 能力用于在 VFS 中将附加的持久数据与文件提供关联.
 
-The VFS manages a persistent snapshot of the files that are accessed via the IDE. These snapshots store only those files which have been requested at least once via the VFS API. Here are some important things to keep in mind about the nature of VFS:
+VFS 管理通过集成开发环境访问的文件的持久快照. 这些快照只存储那些通过 VFS API 请求过至少一次的文件. 关于 VFS 的性质, 以下是一些需要注意的重要事项:
 
-* The contents of the cache is refreshed asynchronously to match any changes on disk.
-* Keep in mind that the snapshot is stored at the application level, as you might expect, so a file that is open in multiple projects will only have one snapshot.
-* The snapshot is updated from disk during refresh operations, which generally happen asynchronously. All write operations made through the VFS are synchronous and the contents is saved to disk immediately.
+* 缓存的内容是异步刷新的, 以匹配磁盘上的任何变化.
+* 请记住, 快照是存储在应用程序级别的, 正如你所期望的那样, 因此在多个项目中打开的文件将只有一个快照.
+* 快照在刷新操作过程中从磁盘更新, 刷新操作通常是异步进行的. 通过 VFS 进行的所有写入操作都是同步的, 内容会立即保存到磁盘上.
 
-> Read more about VFS from the [official docs](https://plugins.jetbrains.com/docs/intellij/virtual-file-system.html?from=jetbrains.org).
+> 从[官方文档](https://plugins.jetbrains.com/docs/intellij/virtual-file-system.html?from=jetbrains.org) 阅读有关 VFS 的更多信息.
 
-There are quite a few common scenarios that you face when using VFS to work with files that your plugin needs. The following are some of these scenarios with code samples to help you deal with them.
+使用 VFS 处理插件所需的文件时, 会遇到很多常见情况. 以下是其中一些情况, 并附有代码示例, 可帮助你处理这些情况.
 
-#### Getting a list of all the virtual files in a project
+#### 获取项目中所有虚拟文件的列表
 
-Snippet to get a list of virtual files by name `Lambdas.kt`.
+按名称`Lambdas.kt`获取虚拟文件列表的代码段.
 
 ```
 fun getListOfProjectVirtualFilesByName(project: Project,
@@ -39,7 +39,7 @@ return FilenameIndex.getVirtualFilesByName(
 }
 ```
 
-Snippet to get a list of virtual files with extension `kt`.
+获取扩展名为`kt`的虚拟文件列表的代码段.
 
 ```
 fun getListOfProjectVirtualFilesByExt(project: Project,
@@ -51,7 +51,7 @@ return FilenameIndex.getAllFilesByExt(project, extName, scope)
 }
 ```
 
-Snippet to get a list of all virtual files in a project.
+获取项目中所有虚拟文件列表的代码段.
 
 ```
 fun getListOfAllProjectVFiles(project: Project): MutableCollection<VirtualFile> {
@@ -65,19 +65,19 @@ fun getListOfAllProjectVFiles(project: Project): MutableCollection<VirtualFile> 
 }
 ```
 
-#### Attach listeners to see changes to virtual files programmatically
+#### 以编程方式附加监听器以查看虚拟文件的变化
 
-You can attach the listeners programmatically or declaratively.
+你可以通过编程或声明的方式附加监听器.
 
-This is the deprecated way of programmatically attaching a listener for VFS changes:
+这是以编程方式附加VFS变化监听器的过时方法:
 
 ```VirtualFileManager.getInstance().addVirtualFileListener()```
 
-The new way to add a listener programmatically is to listen to `VirtualFileManager.VFS_CHANGES` events on the bus (aka the topic).
+以编程方式添加监听器的新方法是监听总线(又称主题)上的`VirtualFileManager.VFS_CHANGES`事件.
 
-> There is no way to filter for these change events by path or filename, so the logic to filer out unwanted events needs to go in the listener.
+> 由于无法按路径或文件名过滤这些更改事件, 因此需要在监听器中加入过滤不需要的事件的逻辑.
 
-The following function shows how to register this in code. Note that this function runs in the EDT.
+下面的函数展示了如何在代码中进行注册. 请注意, 该函数在 EDT 中运行.
 
 ```
 /**
@@ -119,16 +119,15 @@ fun doAfter(events: List<VFileEvent>) {
   }
 }
 ```
+使用这种方法, 必须在某个时刻运行附加监听器本身的代码. 因此, 如果这是一个应在项目打开时运行的监听器, 则可能需要添加一个`postStartupActivity`, 这只是一个由插件提供的类, 将在 IDE 打开项目后运行. 请在动态插件部分阅读所有相关内容.
 
-Using this approach, the code attaching the listener itself has to be run at some point. So if this is a listener that should run when your project is opened, then you might need to add a `postStartupActivity`, which is just a class supplied by your plugin that will be run after the IDE opens a project. Please read all about this in the dynamic plugins section.
+> 💡 如果你希望引用当前打开的项目, 你可能希望使用这种方法, 而不是下图所示的声明式方法.
 
-> 💡 You might want to use this approach over the declarative approach shown below in case you want a reference to the currently open project.
+#### 以声明方式附加监听器查看虚拟文件的更改
 
-#### Attach listeners to see changes to virtual files declaratively
+你也可以在`plugin.xml`中声明式地注册监听器. 使用这种方法与上述代码方法有一些不同之处. 你可以在`plugin.xml`中为特定事件类注册一个监听器, 而不是订阅一个主题.
 
-You can also register a listener declaratively in your `plugin.xml`. There are some differences to using this approach over the code approach shown above. Instead of subscribing to a topic, you can simply register a listener for a specific event class in your plugin.xml.
-
-Here’s a snippet that does something similar to the code above. So the `VirtualFileManager.VFS_CHANGES` topic is equivalent to the `com.intellij.openapi.vfs.newvfs.BulkFileListener` class.
+下面的代码段与上面的代码类似. 因此, `VirtualFileManager.VFS_CHANGES`主题相当于`com.intellij.openapi.vfs.newvfs.BulkFileListener`类.
 
 ```
 <applicationListeners>
@@ -136,7 +135,7 @@ Here’s a snippet that does something similar to the code above. So the `Virtua
 </applicationListeners>
 ```
 
-Here’s the code.
+代码在这里.
 
 ```
 class MyVfsListener : BulkFileListener {
@@ -147,25 +146,24 @@ class MyVfsListener : BulkFileListener {
 }
 ```
 
-> Here’s more information on registering VFS listeners in the [official docs](https://plugins.jetbrains.com/docs/intellij/plugin-listeners.html?from=jetbrains.org#defining-application-level-listeners).
+> [官方文档](https://plugins.jetbrains.com/docs/intellij/plugin-listeners.html?from=jetbrains.org#defining-application-level-listeners) 中有关注册 VFS 监听器的更多信息.
 
+> 💡 也可以声明地附加项目级的监听器. 不过, 这要求你将在 XML 中注册的接口/类可以将项目对象作为参数. 就 VFS 监听器而言, 它不接受项目参数, 因为 VFS 操作是应用级的. 因此, 如果要获取当前打开的项目, 就必须使用编程方法.
 
-> 💡 You can also declaratively attach listeners that are scoped to a project. However, this requires that the interface / class that you will register in the XML can take a project object as a parameter. In the case of VFS listeners it does not take a project parameter, since VFS operations are application level. So if you want to get a hold of the currently open project, then you have to use the programmatic approach.
+#### 异步处理文件系统事件
 
-#### Asynchronously process file system events
+可以异步(在后台线程中)获取这些文件系统事件. 请查看[`AsyncFileListener.java`](https://upsource.jetbrains.com/idea-ce/file/idea-ce-7cf49a16e4e15a18fa2f742635053647ae94abfb/platform/core-api/src/com/intellij/openapi/vfs/AsyncFileListener.java)类中的示例, 了解如何做到这一点. 异步版本不像在UI线程上运行的版本那样容易实现. 下面是一些相关说明:
 
-It is possible to get these file system events asynchronously (in a background thread). Take a Look at the [`AsyncFileListener.java`](https://upsource.jetbrains.com/idea-ce/file/idea-ce-7cf49a16e4e15a18fa2f742635053647ae94abfb/platform/core-api/src/com/intellij/openapi/vfs/AsyncFileListener.java) class for examples on how to do this. The async versions are not as trivial to implement as the version that runs on the UI thread. Here are some notes on this:
+1. 你可以为`vfs.asyncListener`注册一个扩展, 在`plugin.xml`中注册你的异步监听器.
+2. 或者可以调用[`VirtualFileManager.java`](https://upsource.jetbrains.com/idea-ce/file/idea-ce-7cf49a16e4e15a18fa2f742635053647ae94abfb/platform/core-api/src/com/intellij/openapi/vfs/VirtualFileManager.java)的`addVirtualFileListener()`方法.
 
-1. You can register an extension for `vfs.asyncListener` that registers your async listener in `plugin.xml`.
-2. Or you can call [`VirtualFileManager.java`](https://upsource.jetbrains.com/idea-ce/file/idea-ce-7cf49a16e4e15a18fa2f742635053647ae94abfb/platform/core-api/src/com/intellij/openapi/vfs/VirtualFileManager.java)’s `addVirtualFileListener()` method.
+#### 在保存当前打开的文件时进行拦截
 
-#### Intercept when the currently open file gets saved
+这是一个代码片段, 可使用`AppTopics.FILE_DOCUMENT_SYNC`主题在保存文件前获取事件. 请阅读有关[Document](https://plugins.jetbrains.com/docs/intellij/documents.html?from=jetbrains.org#how-do-i-get-notified-when-documents-change) 的更多信息, 以了解此事件的作用和来源.
 
-This is a code snippet that can use the `AppTopics.FILE_DOCUMENT_SYNC` topic to get an event just before a file is saved. Read more about [Document](https://plugins.jetbrains.com/docs/intellij/documents.html?from=jetbrains.org#how-do-i-get-notified-when-documents-change) to get an understanding of what this event does and where it comes from.
-
-> Note that this listener will fire on any file that is being saved, not just the only one that is currently being edited.
-> * So if you’re relying on this to fire JUST for the file that is currently open, then this is not the way to go.
-> * However, if you want to do something before any files that are open in editors are going to be saved, then this is the place to trap these events.
+> 请注意, 该监听器将触发任何正在保存的文件, 而不仅仅是当前正在编辑的文件.
+> * 因此, 如果你要依靠它来触发当前打开文件的 JUST, 那就不能使用这个方法.
+> * 然而, 如果你想在编辑器中打开的文件被保存之前做一些事情, 那么这里就是捕获这些事件的地方.
 
 ```
 /**
@@ -193,15 +191,15 @@ private fun attachFileSaveListener() {
 
 ### Document
 
-The Document API is a way to access a file from the IDE as a simple text file. The IntelliJ Platform handles encoding and line break conversions when loading or saving the file transparently. There are a few ways of getting a `Document` object.
+Document API 是一种将文件作为简单文本文件从IDE中访问的方法. 在加载或保存文件时, IntelliJ 平台会透明地处理编码和换行. 有几种获取`Document`对象的方法.
 
-* From an action using `e.getRequiredData(CommonDataKeys.EDITOR).document`.
-* From a virtual file using `FileDocumentManager.document`.
-* From a PSI file using `PsiDocumentManager.getInstance().document`.
+* 使用`e.getRequiredData(CommonDataKeys.EDITOR).document`从操作中获取.
+* 使用`FileDocumentManager.document`从虚拟文件获取.
+* 使用`PsiDocumentManager.getInstance().document`从 PSI 文件获取.
 
-#### Example of an action that uses the Document AP
+#### 使用Document API 的操作示例
 
-Here’s an example of an action that uses the Document API to replace some selected text in the IDE with another string.
+下面是一个使用 Document API 将 IDE 中的某些选定文本替换为另一个字符串的操作示例.
 
 ```
 class EditorReplaceTextAction : AnAction() {
@@ -243,4 +241,4 @@ class EditorReplaceTextAction : AnAction() {
 }
 ```
 
-> Read more about Documents from the [official docs](https://plugins.jetbrains.com/docs/intellij/documents.html?from=jetbrains.org#how-do-i-get-notified-when-documents-change).
+> 要了解更多关于Document的信息, 请查看[官方文档](https://plugins.jetbrains.com/docs/intellij/documents.html?from=jetbrains.org#how-do-i-get-notified-when-documents-change).
